@@ -214,7 +214,7 @@ Desenvolvido por alunos da **Escola Politécnica da UPE**:
 - **Diego Nery Romeiro**
 - **Nicholas Saraiva**
 - **Elaine**
-
+- **Rita de Cássia Ferreira**
 ---
 
 ## Licença
