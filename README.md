@@ -206,7 +206,7 @@ A pasta `documentations/` contém:
 
 Desenvolvido por alunos da **Escola Politécnica da UPE**:
 
-- **Elayne**
+- **Gabriel Lins Alves do Nascimento**
 - **Lucas**
 - **Rafael Herculano**
 - **Thiago Brito**
