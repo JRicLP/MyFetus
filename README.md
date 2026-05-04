@@ -211,6 +211,8 @@ Desenvolvido por alunos da **Escola Politécnica da UPE**:
 - **Rafael Herculano**
 - **Thiago Brito**
 - **João Ricardo**
+- **Diego Nery Romeiro**
+- **Elaine**
 
 ---
 
