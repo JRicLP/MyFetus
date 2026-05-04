@@ -212,6 +212,7 @@ Desenvolvido por alunos da **Escola Politécnica da UPE**:
 - **Thiago Brito**
 - **João Ricardo**
 - **Diego Nery Romeiro**
+- **Nicholas Saraiva**
 - **Elaine**
 
 ---
