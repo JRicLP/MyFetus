@@ -215,6 +215,7 @@ Desenvolvido por alunos da **Escola Politécnica da UPE**:
 - **Nicholas Saraiva**
 - **Elaine**
 - **Rita de Cássia Ferreira**
+- **Samuel Henrique Santos Silva**
 ---
 
 ## Licença
