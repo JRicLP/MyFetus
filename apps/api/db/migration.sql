@@ -41,18 +41,22 @@ ALTER TABLE medidas_fetais
 --    A função update_updated_at_column() já existe no banco,
 --    só criamos os triggers novos.
 
+DROP TRIGGER IF EXISTS update_pregnancies_updated_at ON pregnancies;
 CREATE TRIGGER update_pregnancies_updated_at
   BEFORE UPDATE ON pregnancies
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_pregnancy_events_updated_at ON pregnancy_events;
 CREATE TRIGGER update_pregnancy_events_updated_at
   BEFORE UPDATE ON pregnancy_events
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_pregnant_documents_updated_at ON pregnant_documents;
 CREATE TRIGGER update_pregnant_documents_updated_at
   BEFORE UPDATE ON pregnant_documents
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_medidas_fetais_updated_at ON medidas_fetais;
 CREATE TRIGGER update_medidas_fetais_updated_at
   BEFORE UPDATE ON medidas_fetais
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -74,6 +78,7 @@ CREATE TABLE IF NOT EXISTS doctors (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+DROP TRIGGER IF EXISTS update_doctors_updated_at ON doctors;
 CREATE TRIGGER update_doctors_updated_at
   BEFORE UPDATE ON doctors
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
