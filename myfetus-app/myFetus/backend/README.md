@@ -107,7 +107,7 @@ O backend estará acessível em:
 
 O banco PostgreSQL em:
 
-👉 localhost:5433
+👉 localhost:5434
 
 🔧 Variáveis de Ambiente (Backend)
 
@@ -116,7 +116,7 @@ O backend utiliza as seguintes variáveis (configuradas automaticamente no Docke
 PG_USER=myuser
 PG_PASSWORD=mypassword
 PG_DATABASE=mydatabase
-PG_HOST=myfetus-db
+PG_HOST=db
 PG_PORT=5432
 PORT=3000
 

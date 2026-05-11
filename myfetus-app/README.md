@@ -23,9 +23,29 @@ Certifique-se de ter instalado:
 ```bash
 git clone https://github.com/myfetus/myfetus-app.git
 cd myfetus-app
-yarn install
-# ou
+
+# Recomendado (instala o app que fica em ./myFetus)
 npm install
+
+# Alternativa equivalente:
+# cd myFetus
+# npm install
+
+# (Se preferir Yarn, rode os comandos dentro de ./myFetus)
+```
+
+### Rodando o app
+
+Na raiz (`myfetus-app/`):
+
+```bash
+npm start
+```
+
+Se aparecer `TypeError: fetch failed` durante o start do Expo, rode em modo offline (mais estável em redes/proxy):
+
+```bash
+npm run start:offline
 ```
 
 ### [Configurando a database](https://github.com/myfetus/myfetus-app/tree/backend/myFetus/backend/PostgresQL.md)
