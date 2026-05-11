@@ -30,7 +30,7 @@ const uploadDocument = async (req, res) => {
     const file_path = req.file.path;
 
     const result = await client.query(
-      `INSERT INTO pregnant_documents 
+      `INSERT INTO documents 
         (pregnant_id, document_name, document_type, file_path) 
        VALUES ($1, $2, $3, $4) RETURNING *`,
       [pregnant_id, document_name, document_type, file_path]
@@ -64,7 +64,7 @@ const getDocuments = async (req, res) => {
   }
   try {
     const result = await client.query(
-      'SELECT * FROM pregnant_documents WHERE pregnant_id = $1',
+      'SELECT * FROM documents WHERE pregnant_id = $1',
       [pregnant_id]
     );
     res.json(result.rows);
@@ -89,7 +89,7 @@ const getDocumentById = async (req, res) => {
 
   try {
     const result = await client.query(
-      'SELECT * FROM pregnant_documents WHERE id = $1',
+      'SELECT * FROM documents WHERE id = $1',
       [id]
     );
 
@@ -119,7 +119,7 @@ const deleteDocument = async (req, res) => {
 
   try {
     const doc = await client.query(
-      'SELECT * FROM pregnant_documents WHERE id = $1',
+      'SELECT * FROM documents WHERE id = $1',
       [id]
     );
 
@@ -134,7 +134,7 @@ const deleteDocument = async (req, res) => {
       fs.unlinkSync(file_path);
     }
 
-    await client.query('DELETE FROM pregnant_documents WHERE id = $1', [id]);
+    await client.query('DELETE FROM documents WHERE id = $1', [id]);
 
     res.json({ message: 'Documento removido com sucesso.' });
   } catch (err) {
@@ -154,9 +154,13 @@ const deleteDocument = async (req, res) => {
  *  - [JSON]: Documento atualizado.
  */
 const updateDocument = async (req, res) => {
+  const { document_name, document_type } = req.body;
+  const updates = {};
+  if (document_name) updates.document_name = document_name;
+  if (document_type) updates.document_type = document_type;
+
   try {
-    // updateEntity deve receber o nome correto da tabela
-    const updatedDoc = await updateEntity('pregnant_documents', req.params.id, req.body);
+    const updatedDoc = await updateEntity('documents', req.params.id, updates);
     if (!updatedDoc) return res.status(404).send('Documento não encontrado');
     res.json(updatedDoc);
   } catch (err) {

@@ -17,11 +17,11 @@ const updateEntity = require('../utils/updateEntity');
  *  - [JSON]: Registro do evento criado.
  */
 const createEvent = async (req, res) => {
-  const { pregnancy_id, descricao, data_evento } = req.body;
+  const { pregnancy_id, description, event_date } = req.body;
   try {
     const result = await client.query(
-      'INSERT INTO pregnancy_events (pregnancy_id, descricao, data_evento) VALUES ($1, $2, $3) RETURNING *',
-      [pregnancy_id, descricao, data_evento]
+      'INSERT INTO pregnancy_events (pregnancy_id, description, event_date) VALUES ($1, $2, $3) RETURNING *',
+      [pregnancy_id, description, event_date]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -49,7 +49,7 @@ const getEvents = async (req, res) => {
 
   try {
     const result = await client.query(
-      'SELECT * FROM pregnancy_events WHERE pregnancy_id = $1 ORDER BY data_evento DESC',
+      'SELECT * FROM pregnancy_events WHERE pregnancy_id = $1 ORDER BY event_date DESC',
       [pregnancy_id]
     );
     res.json(result.rows);
@@ -70,8 +70,13 @@ const getEvents = async (req, res) => {
  *  - [JSON]: Registro atualizado do evento.
  */
 const updatePregnancyEvent = async (req, res) => {
+  const { description, event_date } = req.body;
+  const updates = {};
+  if (description) updates.description = description;
+  if (event_date) updates.event_date = event_date;
+
   try {
-    const updatedEvent = await updateEntity('pregnancy_events', req.params.id, req.body);
+    const updatedEvent = await updateEntity('pregnancy_events', req.params.id, updates);
     if (!updatedEvent) return res.status(404).send('Evento não encontrado');
     res.json(updatedEvent);
   } catch (err) {

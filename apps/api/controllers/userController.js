@@ -14,19 +14,19 @@ const SALT_ROUNDS = 10
  * Cria um novo usuário com senha criptografada.
  * 
  * Parâmetros:
- *  - req[Object]: Requisição contendo `body` com os campos (name, email, password, birthdate, is_active, role).
+ *  - req[Object]: Requisição contendo `body` com os campos (name, email, password, birth_date, is_active, role).
  *  - res[Object]: Resposta HTTP.
  * 
  * Retorno:
  *  - [JSON]: Usuário criado com sucesso.
  */
 const createUser = async (req, res) => {
-  const { name, email, password, birthdate, is_active = true, role = 'user' } = req.body;
+  const { name, email, password, birth_date, is_active = true, role = 'user' } = req.body;
   try {
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
     const result = await client.query(
-      'INSERT INTO users (name, email, password, birthdate, is_active, role) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [name, email, hashedPassword, birthdate, is_active, role]
+      'INSERT INTO users (name, email, password, birth_date, is_active, role) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [name, email, hashedPassword, birth_date, is_active, role]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
