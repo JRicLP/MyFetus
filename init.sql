@@ -15,7 +15,9 @@ CREATE TABLE IF NOT EXISTS users (
     is_active BOOLEAN DEFAULT TRUE,
     role VARCHAR(20) DEFAULT 'user' CHECK (role IN ('user', 'admin')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,
+    version INTEGER DEFAULT 1
 );
 
 -- =====================================================
@@ -26,6 +28,8 @@ CREATE TABLE IF NOT EXISTS pregnants (
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,
+    version INTEGER DEFAULT 1,
 
     altura DOUBLE PRECISION,
     peso_pregestacional DOUBLE PRECISION,
@@ -122,22 +126,6 @@ CREATE TABLE IF NOT EXISTS pregnants (
     info_gerais_psicossocial TEXT
 );
 
--- Trigger para updated_at
-CREATE OR REPLACE FUNCTION update_pregnant_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS trg_update_pregnant_updated_at ON pregnants;
-
-CREATE TRIGGER trg_update_pregnant_updated_at
-BEFORE UPDATE ON pregnants
-FOR EACH ROW
-EXECUTE FUNCTION update_pregnant_updated_at();
-
 -- =====================================================
 -- TABELA PREGNANCIES
 -- =====================================================
@@ -155,7 +143,10 @@ CREATE TABLE IF NOT EXISTS pregnancies (
     altura_uterina DOUBLE PRECISION DEFAULT 0, 
     regularidade_do_ciclo BOOLEAN DEFAULT TRUE,
     ig_ultrassonografia DATE NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,
+    version INTEGER DEFAULT 1
 );
 
 -- =====================================================
@@ -166,7 +157,10 @@ CREATE TABLE IF NOT EXISTS pregnancy_events (
     pregnancy_id INTEGER REFERENCES pregnancies(id) ON DELETE CASCADE,
     descricao TEXT NOT NULL,
     data_evento DATE NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,
+    version INTEGER DEFAULT 1
 );
 
 -- =====================================================
@@ -179,7 +173,9 @@ CREATE TABLE IF NOT EXISTS pregnant_documents (
     document_type VARCHAR(100),
     file_path TEXT NOT NULL,
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,
+    version INTEGER DEFAULT 1
 );
 
 -- =====================================================
@@ -192,3 +188,69 @@ CREATE TABLE IF NOT EXISTS medidas_fetais (
     dgn FLOAT DEFAULT 0.0,
     idade_gestacional_semanas INTEGER NOT NULL
 );
+
+-- =====================================================
+-- TABELA SYNC_QUEUE
+-- =====================================================
+CREATE TABLE IF NOT EXISTS sync_queue (
+        id SERIAL PRIMARY KEY,
+        op_id UUID UNIQUE NOT NULL,
+        client_id TEXT NOT NULL,
+        entity_table TEXT NOT NULL,
+        entity_id INTEGER,
+        operation TEXT NOT NULL,
+        payload JSONB,
+        base_version INTEGER,
+        status TEXT NOT NULL DEFAULT 'pending',
+        error TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        processed_at TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_sync_queue_status ON sync_queue (status);
+CREATE INDEX IF NOT EXISTS idx_sync_queue_entity ON sync_queue (entity_table, entity_id);
+CREATE INDEX IF NOT EXISTS idx_sync_queue_client ON sync_queue (client_id, created_at);
+
+-- =====================================================
+-- TRIGGERS DE UPDATED_AT E VERSION
+-- =====================================================
+CREATE OR REPLACE FUNCTION update_updated_at_and_version()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    IF TG_OP = 'UPDATE' THEN
+        NEW.version = COALESCE(NEW.version, 1) + 1;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_users_updated_at ON users;
+CREATE TRIGGER trg_users_updated_at
+BEFORE UPDATE ON users
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_and_version();
+
+DROP TRIGGER IF EXISTS trg_pregnants_updated_at ON pregnants;
+CREATE TRIGGER trg_pregnants_updated_at
+BEFORE UPDATE ON pregnants
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_and_version();
+
+DROP TRIGGER IF EXISTS trg_pregnancies_updated_at ON pregnancies;
+CREATE TRIGGER trg_pregnancies_updated_at
+BEFORE UPDATE ON pregnancies
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_and_version();
+
+DROP TRIGGER IF EXISTS trg_pregnancy_events_updated_at ON pregnancy_events;
+CREATE TRIGGER trg_pregnancy_events_updated_at
+BEFORE UPDATE ON pregnancy_events
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_and_version();
+
+DROP TRIGGER IF EXISTS trg_pregnant_documents_updated_at ON pregnant_documents;
+CREATE TRIGGER trg_pregnant_documents_updated_at
+BEFORE UPDATE ON pregnant_documents
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_and_version();
