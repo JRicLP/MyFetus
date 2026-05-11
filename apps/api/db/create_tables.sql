@@ -84,7 +84,7 @@ ALTER TABLE public.doctors OWNER TO myuser;
 
 --
 -- Name: doctors_id_seq; Type: SEQUENCE; Schema: public; Owner: myuser
---
+--user
 
 CREATE SEQUENCE public.doctors_id_seq
     AS integer

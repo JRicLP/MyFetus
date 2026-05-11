@@ -54,18 +54,18 @@ app.use(express.urlencoded({ extended: true }));
 const userRoutes = require('./routes/users');
 const pregnantRoutes = require('./routes/pregnants');
 const pregnancyRoutes = require('./routes/pregnancies');
-const pregnancyEventsRoutes = require('./routes/pregnancy-events');
+const pregnancyEventsRoutes = require('./routes/pregnancyEvents');
 const documentsRoutes = require('./routes/documents');
-const fetalMeasurementsRoutes = require('./routes/fetal-measurements');
+const fetalMeasurementsRoutes = require('./routes/medicoes');
 const syncRoutes = require('./routes/sync');
 
 //Prefixo /api para padronização das rotas
 app.use('/api/users', userRoutes);
 app.use('/api/pregnants', pregnantRoutes);
 app.use('/api/pregnancies', pregnancyRoutes);
-app.use('/api/pregnancy-events', pregnancyEventsRoutes);
+app.use('/api/pregnancyEvents', pregnancyEventsRoutes);
 app.use('/api/documents', documentsRoutes);
-app.use('/api/fetal-measurements', fetalMeasurementsRoutes);
+app.use('/api/medicoes', fetalMeasurementsRoutes);
 app.use('/api/sync', syncRoutes);
 
 //Rota de teste (para verificar se o backend está no ar)
