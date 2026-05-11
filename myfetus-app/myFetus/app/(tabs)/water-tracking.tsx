@@ -4,14 +4,15 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
+  Platform,
+  useWindowDimensions,
   ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const { width, height } = Dimensions.get('window');
+const WEB_MAX_WIDTH = 430;
 
 const WATER_HISTORY_KEY = '@myFetus:waterHistory';
 
@@ -26,6 +27,10 @@ const GARRAFA_ML = 500; // 1 garrafa = 500ml
 const GARRAFAO_ML = 1000; // 1 garrafão = 1L
 
 export default function WaterTrackingScreen() {
+  const { width: windowWidth, height } = useWindowDimensions();
+  const width = Platform.OS === 'web' ? Math.min(windowWidth, WEB_MAX_WIDTH) : windowWidth;
+  const styles = React.useMemo(() => createStyles(width, height), [width, height]);
+
   const [waterAmount, setWaterAmount] = useState(0);
   const [waterHistory, setWaterHistory] = useState<WaterEntry[]>([]);
   const dailyGoal = 2000; // 2 litros por dia
@@ -101,93 +106,104 @@ export default function WaterTrackingScreen() {
       colors={['#cce5f6', '#f8cde9']}
       style={styles.container}
     >
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Controle de Água</Text>
-          <Text style={styles.subtitle}>Meta diária: 2L</Text>
-        </View>
-
-        <View style={styles.progressContainer}>
-          <View style={styles.progressBar}>
-            <View 
-              style={[
-                styles.progressFill, 
-                { 
-                  width: `${Math.min((waterAmount / dailyGoal) * 100, 100)}%`,
-                  backgroundColor: getProgressColor(waterAmount)
-                }
-              ]} 
-            />
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        <View style={styles.page}>
+          <View style={styles.header}>
+            <Text style={styles.title}>Controle de Água</Text>
+            <Text style={styles.subtitle}>Meta diária: 2L</Text>
           </View>
-          <Text style={styles.progressText}>
-            {formatWaterAmount(waterAmount)} / {formatWaterAmount(dailyGoal)}
-          </Text>
-        </View>
 
-        <View style={styles.buttonsContainer}>
-          <TouchableOpacity 
-            style={styles.waterButton}
-            onPress={() => addWater(COPO_ML)}
-          >
-            <FontAwesome name="glass" size={24} color="#20B2AA" />
-            <Text style={styles.buttonText}>1 Copo</Text>
-            <Text style={styles.buttonSubtext}>{COPO_ML}ml</Text>
-          </TouchableOpacity>
+          <View style={styles.progressContainer}>
+            <View style={styles.progressBar}>
+              <View 
+                style={[
+                  styles.progressFill, 
+                  { 
+                    width: `${Math.min((waterAmount / dailyGoal) * 100, 100)}%`,
+                    backgroundColor: getProgressColor(waterAmount)
+                  }
+                ]} 
+              />
+            </View>
+            <Text style={styles.progressText}>
+              {formatWaterAmount(waterAmount)} / {formatWaterAmount(dailyGoal)}
+            </Text>
+          </View>
 
-          <TouchableOpacity 
-            style={styles.waterButton}
-            onPress={() => addWater(GARRAFA_ML)}
-          >
-            <FontAwesome name="tint" size={24} color="#20B2AA" />
-            <Text style={styles.buttonText}>1 Garrafa</Text>
-            <Text style={styles.buttonSubtext}>{GARRAFA_ML}ml</Text>
-          </TouchableOpacity>
+          <View style={styles.buttonsContainer}>
+            <TouchableOpacity 
+              style={styles.waterButton}
+              onPress={() => addWater(COPO_ML)}
+            >
+              <FontAwesome name="glass" size={24} color="#20B2AA" />
+              <Text style={styles.buttonText}>1 Copo</Text>
+              <Text style={styles.buttonSubtext}>{COPO_ML}ml</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={styles.waterButton}
-            onPress={() => addWater(GARRAFAO_ML)}
-          >
-            <FontAwesome name="tint" size={24} color="#20B2AA" />
-            <Text style={styles.buttonText}>1 Garrafão</Text>
-            <Text style={styles.buttonSubtext}>{GARRAFAO_ML}ml</Text>
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity 
+              style={styles.waterButton}
+              onPress={() => addWater(GARRAFA_ML)}
+            >
+              <FontAwesome name="tint" size={24} color="#20B2AA" />
+              <Text style={styles.buttonText}>1 Garrafa</Text>
+              <Text style={styles.buttonSubtext}>{GARRAFA_ML}ml</Text>
+            </TouchableOpacity>
 
-        <View style={styles.historyContainer}>
-          <Text style={styles.historyTitle}>Histórico Diário</Text>
-          {waterHistory.length > 0 ? (
-            waterHistory.map((entry, index) => (
-              <View key={index} style={styles.historyItem}>
-                <Text style={styles.historyDate}>{formatDate(entry.date)}</Text>
-                <View style={styles.historyProgress}>
-                  <View 
-                    style={[
-                      styles.historyProgressFill,
-                      { 
-                        width: `${Math.min((entry.amount / dailyGoal) * 100, 100)}%`,
-                        backgroundColor: getProgressColor(entry.amount)
-                      }
-                    ]}
-                  />
+            <TouchableOpacity 
+              style={styles.waterButton}
+              onPress={() => addWater(GARRAFAO_ML)}
+            >
+              <FontAwesome name="tint" size={24} color="#20B2AA" />
+              <Text style={styles.buttonText}>1 Garrafão</Text>
+              <Text style={styles.buttonSubtext}>{GARRAFAO_ML}ml</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.historyContainer}>
+            <Text style={styles.historyTitle}>Histórico Diário</Text>
+            {waterHistory.length > 0 ? (
+              waterHistory.map((entry, index) => (
+                <View key={index} style={styles.historyItem}>
+                  <Text style={styles.historyDate}>{formatDate(entry.date)}</Text>
+                  <View style={styles.historyProgress}>
+                    <View 
+                      style={[
+                        styles.historyProgressFill,
+                        { 
+                          width: `${Math.min((entry.amount / dailyGoal) * 100, 100)}%`,
+                          backgroundColor: getProgressColor(entry.amount)
+                        }
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.historyAmount}>{formatWaterAmount(entry.amount)}</Text>
                 </View>
-                <Text style={styles.historyAmount}>{formatWaterAmount(entry.amount)}</Text>
-              </View>
-            ))
-          ) : (
-            <Text style={styles.noHistoryText}>Nenhum registro encontrado</Text>
-          )}
+              ))
+            ) : (
+              <Text style={styles.noHistoryText}>Nenhum registro encontrado</Text>
+            )}
+          </View>
         </View>
       </ScrollView>
     </LinearGradient>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (width: number, height: number) => StyleSheet.create({
   container: {
     flex: 1,
   },
   scrollView: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    alignItems: 'center',
+  },
+  page: {
+    width: '100%',
+    maxWidth: width,
+    alignSelf: 'center',
   },
   header: {
     paddingTop: height * 0.05,
@@ -306,4 +322,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontStyle: 'italic',
   },
-}); 
+});

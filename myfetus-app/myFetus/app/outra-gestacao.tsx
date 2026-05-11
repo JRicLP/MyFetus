@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 
-const { width, height } = Dimensions.get('window');
+const WEB_MAX_WIDTH = 430;
 
 export default function OutraGestacaoScreen() {
+  const { width: windowWidth, height } = useWindowDimensions();
+  const width = Platform.OS === 'web' ? Math.min(windowWidth, WEB_MAX_WIDTH) : windowWidth;
+  const styles = React.useMemo(() => createStyles(width, height), [width, height]);
+
   const [hadPreviousPregnancies, setHadPreviousPregnancies] = useState<null | boolean>(null);
   const router = useRouter();
 
@@ -72,7 +76,7 @@ export default function OutraGestacaoScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (width: number, height: number) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -81,6 +85,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
+    width: '100%',
+    maxWidth: width,
+    alignSelf: 'center',
   },
   title: {
     fontSize: width * 0.06,

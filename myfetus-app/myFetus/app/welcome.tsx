@@ -4,11 +4,11 @@ import {
   Text,
   StyleSheet,
   Image,
-  Dimensions,
   TouchableOpacity,
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  useWindowDimensions,
   Alert,
   Modal
 } from 'react-native';
@@ -17,9 +17,13 @@ import { useRouter } from 'expo-router';
 import { saveLastPeriod, calculateGestationWeek } from '../utils/gestationUtils';
 import { FontAwesome } from '@expo/vector-icons';
 
-const { width, height } = Dimensions.get('window');
+const WEB_MAX_WIDTH = 430;
 
 export default function WelcomeScreen() {
+  const { width: windowWidth, height } = useWindowDimensions();
+  const width = Platform.OS === 'web' ? Math.min(windowWidth, WEB_MAX_WIDTH) : windowWidth;
+  const styles = React.useMemo(() => createStyles(width, height), [width, height]);
+
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState('');
   const [showWarning, setShowWarning] = useState(false);
@@ -168,7 +172,7 @@ export default function WelcomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (width: number, height: number) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -179,6 +183,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'space-between',
     padding: 20,
+    width: '100%',
+    maxWidth: width,
+    alignSelf: 'center',
   },
   welcomeContent: {
     flex: 1,
