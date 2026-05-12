@@ -4,14 +4,16 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Dimensions,
+  Platform,
+  useWindowDimensions,
   Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { getLastPeriod, calculateGestationWeek, getBabySize, getBabyDescription, calculateDPP } from '../../utils/gestationUtils';
 
-const { width, height } = Dimensions.get('window');
+const WEB_MAX_WIDTH = 430;
 
 // Mapeamento das imagens das semanas
 const fetusImages: { [key: string]: any } = {
@@ -56,11 +58,22 @@ const fetusImages: { [key: string]: any } = {
 };
 
 const getFetusImage = (week: number) => {
-  const formattedWeek = week.toString().padStart(2, '0');
-  return fetusImages[formattedWeek];
+  if (week < 4) {
+    return require('../../assets/images/fetus-heart.png');
+  }
+
+  const clampedWeek = Math.min(week, 41);
+  const formattedWeek = clampedWeek.toString().padStart(2, '0');
+  return fetusImages[formattedWeek] || require('../../assets/images/fetus-heart.png');
 };
 
 export default function HomeScreen() {
+  const { width: windowWidth, height } = useWindowDimensions();
+  const width = Platform.OS === 'web' ? Math.min(windowWidth, WEB_MAX_WIDTH) : windowWidth;
+  const styles = React.useMemo(() => createStyles(width, height), [width, height]);
+
+  const router = useRouter();
+
   const [gestationWeek, setGestationWeek] = useState(0);
   const [babySize, setBabySize] = useState('');
   const [babyDescription, setBabyDescription] = useState('');
@@ -69,70 +82,84 @@ export default function HomeScreen() {
   useEffect(() => {
     const loadGestationData = async () => {
       const lastPeriod = await getLastPeriod();
-      if (lastPeriod) {
-        console.log('Index - Data última menstruação:', lastPeriod);
-        const result = calculateGestationWeek(lastPeriod);
-        console.log('Index - Semana calculada:', result.weeks);
-        setGestationWeek(result.weeks);
-        setBabySize(getBabySize(result.weeks));
-        setBabyDescription(getBabyDescription(result.weeks));
-        setDPP(calculateDPP(lastPeriod));
+      if (!lastPeriod) {
+        router.replace('/welcome');
+        return;
       }
+
+      console.log('Index - Data última menstruação:', lastPeriod);
+      const result = calculateGestationWeek(lastPeriod);
+      console.log('Index - Semana calculada:', result.weeks);
+      setGestationWeek(result.weeks);
+      setBabySize(getBabySize(result.weeks));
+      setBabyDescription(getBabyDescription(result.weeks));
+      setDPP(calculateDPP(lastPeriod));
     };
 
     loadGestationData();
-  }, []);
+  }, [router]);
 
   return (
     <LinearGradient
       colors={['#cce5f6', '#f8cde9']}
       style={styles.container}
     >
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Meu Bebê</Text>
-          <Text style={styles.subtitle}>Semana {gestationWeek}</Text>
-        </View>
-
-        <View style={styles.imageContainer}>
-          <View style={styles.imageWrapper}>
-            <Image
-              source={getFetusImage(gestationWeek)}
-              style={styles.fetusImage}
-              resizeMode="cover"
-            />
-          </View>
-        </View>
-
-        <View style={styles.infoContainer}>
-          <View style={styles.infoCard}>
-            <FontAwesome name="calendar" size={24} color="#20B2AA" />
-            <Text style={styles.infoTitle}>Data Prevista do Parto</Text>
-            <Text style={styles.infoValue}>{dpp}</Text>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        <View style={styles.page}>
+          <View style={styles.header}>
+            <Text style={styles.title}>Meu Bebê</Text>
+            <Text style={styles.subtitle}>Semana {gestationWeek}</Text>
           </View>
 
-          <View style={styles.infoCard}>
-            <FontAwesome name="arrows-alt" size={24} color="#20B2AA" />
-            <Text style={styles.infoTitle}>Tamanho do Bebê</Text>
-            <Text style={styles.infoValue}>{babySize}</Text>
+          <View style={styles.imageContainer}>
+            <View style={styles.imageWrapper}>
+              <Image
+                source={getFetusImage(gestationWeek)}
+                style={styles.fetusImage}
+                resizeMode="cover"
+              />
+            </View>
           </View>
-        </View>
 
-        <View style={styles.descriptionContainer}>
-          <Text style={styles.descriptionTitle}>Desenvolvimento</Text>
-          <Text style={styles.descriptionText}>{babyDescription}</Text>
+          <View style={styles.infoContainer}>
+            <View style={styles.infoCard}>
+              <FontAwesome name="calendar" size={24} color="#20B2AA" />
+              <Text style={styles.infoTitle}>Data Prevista do Parto</Text>
+              <Text style={styles.infoValue}>{dpp}</Text>
+            </View>
+
+            <View style={styles.infoCard}>
+              <FontAwesome name="arrows-alt" size={24} color="#20B2AA" />
+              <Text style={styles.infoTitle}>Tamanho do Bebê</Text>
+              <Text style={styles.infoValue}>{babySize}</Text>
+            </View>
+          </View>
+
+          <View style={styles.descriptionContainer}>
+            <Text style={styles.descriptionTitle}>Desenvolvimento</Text>
+            <Text style={styles.descriptionText}>{babyDescription}</Text>
+          </View>
         </View>
       </ScrollView>
     </LinearGradient>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (width: number, height: number) => StyleSheet.create({
   container: {
     flex: 1,
   },
   scrollView: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    alignItems: 'center',
+  },
+  page: {
+    width: '100%',
+    maxWidth: width,
+    alignSelf: 'center',
   },
   header: {
     paddingTop: height * 0.05,
