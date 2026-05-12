@@ -1,0 +1,24 @@
+{
+  "name": "myfetus",
+  "version": "1.0.0",
+  "description": "**MyFetus** é um aplicativo móvel voltado ao acompanhamento gestacional, desenvolvido para conectar gestantes e médicos em uma plataforma integrada. O app permite monitorar o desenvolvimento semana a semana do bebê, registrar dados clínicos e acompanhar a saúde da gestante de forma prática e acessível.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JRicLP/MyFetus.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/JRicLP/MyFetus/issues"
+  },
+  "homepage": "https://github.com/JRicLP/MyFetus#readme",
+  "devDependencies": {
+    "turbo": "^2.9.12"
+  }
+}

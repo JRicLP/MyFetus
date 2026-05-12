@@ -1,8 +1,0 @@
-node_modules
-.expo
-.git
-.gitignore
-Dockerfile
-docker-compose.yml
-*.log
-.vscode
