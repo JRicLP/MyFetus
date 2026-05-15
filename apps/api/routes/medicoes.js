@@ -19,22 +19,11 @@
  * Observações:
  *   - O comprimento fetal estimado em cm é calculado pela fórmula:
  *       comp_fetal_estimado_cm = 6.18 + 0.59 * comp_femur_mm
- *   - A tabela utilizada no banco é `medicao_femur`.
+ *   - A tabela utilizada no banco é `medidas_fetais`.
  */
 const express = require('express');
 const router = express.Router();
-const { Client } = require('pg');
-require('dotenv').config();
-
-// Conexão com o banco
-const client = new Client({
-  user: process.env.PG_USER,
-  host: process.env.PG_HOST,
-  database: process.env.PG_DATABASE,
-  password: process.env.PG_PASSWORD,
-  port: process.env.PG_PORT,
-});
-client.connect();
+const client = require('../backend');
 
 // Rota POST para salvar medição
 router.post('/', async (req, res) => {
@@ -51,19 +40,25 @@ router.post('/', async (req, res) => {
     const comp_fetal_estimado_cm = 6.18 + 0.59 * comp_femur_mm;
 
     const insertQuery = `
-      INSERT INTO medicao_femur (idade_gestacional_semanas, comp_femur_mm, comp_fetal_estimado_cm)
-      VALUES ($1, $2, $3) RETURNING *;
+      INSERT INTO medidas_fetais (idade_gestacional_semanas, ccn, crl, dgn)
+      VALUES ($1, $2, $3, $4)
+      RETURNING *;
     `;
 
     const result = await client.query(insertQuery, [
       idade_gestacional_semanas,
-      comp_femur_mm,
       comp_fetal_estimado_cm,
+      comp_femur_mm,
+      0.0,
     ]);
 
     res.status(201).json({
       mensagem: 'Medição salva com sucesso!',
-      medicao: result.rows[0],
+      medicao: {
+        ...result.rows[0],
+        comp_femur_mm,
+        comp_fetal_estimado_cm,
+      },
     });
   } catch (error) {
     console.error(error);
