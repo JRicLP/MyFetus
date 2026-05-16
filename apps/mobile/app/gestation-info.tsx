@@ -4,7 +4,8 @@ import {
   Text,
   StyleSheet,
   Image,
-  Dimensions,
+  Platform,
+  useWindowDimensions,
   TouchableOpacity,
   Animated,
   Easing,
@@ -14,7 +15,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import { calculateGestationWeek } from '../utils/gestationUtils';
 
-const { width, height } = Dimensions.get('window');
+const WEB_MAX_WIDTH = 430;
 
 // Mapeamento das imagens das semanas
 const fetusImages: { [key: string]: any } = {
@@ -64,6 +65,10 @@ const getFetusImage = (week: number) => {
 };
 
 export default function GestationInfoScreen() {
+  const { width: windowWidth, height } = useWindowDimensions();
+  const width = Platform.OS === 'web' ? Math.min(windowWidth, WEB_MAX_WIDTH) : windowWidth;
+  const styles = React.useMemo(() => createStyles(width, height), [width, height]);
+
   const router = useRouter();
   const params = useLocalSearchParams();
   const [gestationWeeks, setGestationWeeks] = useState(0);
@@ -279,7 +284,7 @@ export default function GestationInfoScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (width: number, height: number) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -288,6 +293,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
+    width: '100%',
+    maxWidth: width,
+    alignSelf: 'center',
   },
   title: {
     fontSize: width * 0.08,

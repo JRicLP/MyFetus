@@ -5,7 +5,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Dimensions,
+  Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome } from '@expo/vector-icons';
@@ -14,7 +15,7 @@ import { getChecklistForWeek, ChecklistItem, checklistData } from '../data/check
 import { getLastPeriod, calculateGestationWeek, getBabySize, getBabyDescription } from '../../utils/gestationUtils';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const { width, height } = Dimensions.get('window');
+const WEB_MAX_WIDTH = 430;
 
 const TRIMESTER_RANGES = {
   1: { start: 1, end: 13 },
@@ -25,6 +26,10 @@ const TRIMESTER_RANGES = {
 const CHECKLIST_STATE_KEY = '@myFetus:checklistState';
 
 export default function ChecklistScreen() {
+  const { width: windowWidth, height } = useWindowDimensions();
+  const width = Platform.OS === 'web' ? Math.min(windowWidth, WEB_MAX_WIDTH) : windowWidth;
+  const styles = React.useMemo(() => createStyles(width, height), [width, height]);
+
   const [currentWeek, setCurrentWeek] = useState(0);
   const [currentTrimester, setCurrentTrimester] = useState(1);
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
@@ -132,86 +137,94 @@ export default function ChecklistScreen() {
       colors={['#cce5f6', '#f8cde9']}
       style={styles.container}
     >
-      <View style={styles.header}>
-        <Text style={styles.title}>Checklist do {currentTrimester}º Trimestre</Text>
-        <View style={styles.trimesterNavigation}>
-          <TouchableOpacity
-            style={[styles.trimesterButton, currentTrimester === 1 && styles.activeTrimester]}
-            onPress={() => changeTrimester(1)}
-          >
-            <Text style={[styles.trimesterButtonText, currentTrimester === 1 && styles.activeTrimesterText]}>1º</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.trimesterButton, currentTrimester === 2 && styles.activeTrimester]}
-            onPress={() => changeTrimester(2)}
-          >
-            <Text style={[styles.trimesterButtonText, currentTrimester === 2 && styles.activeTrimesterText]}>2º</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.trimesterButton, currentTrimester === 3 && styles.activeTrimester]}
-            onPress={() => changeTrimester(3)}
-          >
-            <Text style={[styles.trimesterButtonText, currentTrimester === 3 && styles.activeTrimesterText]}>3º</Text>
-          </TouchableOpacity>
+      <View style={styles.page}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Checklist do {currentTrimester}º Trimestre</Text>
+          <View style={styles.trimesterNavigation}>
+            <TouchableOpacity
+              style={[styles.trimesterButton, currentTrimester === 1 && styles.activeTrimester]}
+              onPress={() => changeTrimester(1)}
+            >
+              <Text style={[styles.trimesterButtonText, currentTrimester === 1 && styles.activeTrimesterText]}>1º</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.trimesterButton, currentTrimester === 2 && styles.activeTrimester]}
+              onPress={() => changeTrimester(2)}
+            >
+              <Text style={[styles.trimesterButtonText, currentTrimester === 2 && styles.activeTrimesterText]}>2º</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.trimesterButton, currentTrimester === 3 && styles.activeTrimester]}
+              onPress={() => changeTrimester(3)}
+            >
+              <Text style={[styles.trimesterButtonText, currentTrimester === 3 && styles.activeTrimesterText]}>3º</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
 
-      <ScrollView style={styles.scrollView}>
-        {checklistItems.map(item => (
-          <TouchableOpacity
-            key={item.id}
-            style={styles.itemContainer}
-            onPress={() => toggleItem(item.id)}
-          >
-            <View style={[styles.checkbox, item.completed && styles.checkboxCompleted]}>
-              {item.completed && (
-                <FontAwesome name="check" size={12} color="#fff" />
-              )}
-            </View>
-            <View style={styles.itemContent}>
-              <Text
-                style={[
-                  styles.itemTitle,
-                  item.completed && styles.completedText,
-                ]}
-              >
-                {item.title}
-              </Text>
-              {item.description && (
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+          {checklistItems.map(item => (
+            <TouchableOpacity
+              key={item.id}
+              style={styles.itemContainer}
+              onPress={() => toggleItem(item.id)}
+            >
+              <View style={[styles.checkbox, item.completed && styles.checkboxCompleted]}>
+                {item.completed && (
+                  <FontAwesome name="check" size={12} color="#fff" />
+                )}
+              </View>
+              <View style={styles.itemContent}>
                 <Text
                   style={[
-                    styles.itemDescription,
+                    styles.itemTitle,
                     item.completed && styles.completedText,
                   ]}
                 >
-                  {item.description}
+                  {item.title}
                 </Text>
-              )}
-            </View>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+                {item.description && (
+                  <Text
+                    style={[
+                      styles.itemDescription,
+                      item.completed && styles.completedText,
+                    ]}
+                  >
+                    {item.description}
+                  </Text>
+                )}
+              </View>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
 
-      <View style={styles.progressContainer}>
-        <Text style={styles.progressText}>
-          {completedCount} de {checklistItems.length} tarefas concluídas
-        </Text>
-        <View style={styles.progressBar}>
-          <View
-            style={[
-              styles.progress,
-              { width: `${progressPercentage}%` }
-            ]}
-          />
+        <View style={styles.progressContainer}>
+          <Text style={styles.progressText}>
+            {completedCount} de {checklistItems.length} tarefas concluídas
+          </Text>
+          <View style={styles.progressBar}>
+            <View
+              style={[
+                styles.progress,
+                { width: `${progressPercentage}%` }
+              ]}
+            />
+          </View>
         </View>
       </View>
     </LinearGradient>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (width: number, height: number) => StyleSheet.create({
   container: {
     flex: 1,
+  },
+  page: {
+    flex: 1,
+    width: '100%',
+    maxWidth: width,
+    alignSelf: 'center',
   },
   header: {
     paddingTop: height * 0.06,
@@ -252,6 +265,9 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
     paddingHorizontal: 15,
+  },
+  scrollContent: {
+    paddingBottom: 15,
   },
   itemContainer: {
     flexDirection: 'row',
@@ -323,4 +339,4 @@ const styles = StyleSheet.create({
     backgroundColor: '#20B2AA',
     borderRadius: 4,
   },
-}); 
+});

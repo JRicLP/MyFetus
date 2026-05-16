@@ -129,7 +129,7 @@ export const getBabySize = (week: number): string => {
 };
 
 export const getBabyDescription = (week: number): string => {
-  const s: { [key: number]: string } = {
+  const descriptions: { [key: number]: string } = {
     4: 'Nesta fase inicial, o embrião está se formando e o coração começa a bater. O tamanho é similar a um grão de lentilha.',
     5: 'O embrião está crescendo rapidamente. O coração está batendo e os principais órgãos começam a se desenvolver.',
     6: 'O embrião já tem um formato mais definido. O coração está batendo regularmente e os membros começam a se formar.',
