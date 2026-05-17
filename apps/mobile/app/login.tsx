@@ -12,6 +12,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router'; 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiFetch } from './services/api'; //Ajuste o caminho conforme necessário
 
 
 
@@ -29,13 +30,16 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:3000/api/users/login', {
+      const response = await apiFetch('/api/users/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ email: email, password: senha }),
       });
+
+      await AsyncStorage.setItem('authToken', data.token);
+      await AsyncStorage.setItem('userData', JSON.stringify(data.user));
 
       const data = await response.json();
 
@@ -71,11 +75,11 @@ export default function LoginScreen() {
   };
 
   const handleCreateAccount = () => {
-    router.push('/Cadastro?role=user');
+    router.push('/Cadastro?role=gestante');
   };
 
   const handleCreateDoctorAccount = () => {
-    router.push('/Cadastro?role=admin');
+    router.push('/Cadastro?role=medico');
   };
 
   return (

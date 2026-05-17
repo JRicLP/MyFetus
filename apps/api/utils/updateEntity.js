@@ -19,21 +19,31 @@
  *   - Utiliza `client` do módulo `backend` para executar a query SQL.
  *   - Adiciona automaticamente `updated_at = CURRENT_TIMESTAMP`.
  */
+
 const client = require('../backend');
 
-async function updateEntity(table, id, data) {
-  const keys = Object.keys(data);
-  const values = Object.values(data);
+async function updateEntity(table, id, data, allowedFields) {
+  const entries = Object.entries(data).filter(([key]) => allowedFields.includes(key));
 
-  if (keys.length === 0) {
-    throw new Error('Nenhum campo para atualizar.');
+  if (entries.length === 0) {
+    throw new Error('Nenhum campo válido para atualizar.');
   }
 
-  const setClause = keys.map((key, index) => `${key} = $${index + 1}`).join(', ');
-  const query = `UPDATE ${table} SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = $${keys.length + 1} RETURNING *`;
+  const setClause = entries
+    .map(([key], index) => `${key} = $${index + 1}`)
+    .join(', ');
+
+  const values = entries.map(([, value]) => value);
+
+  const query = `
+    UPDATE ${table}
+    SET ${setClause}, updated_at = CURRENT_TIMESTAMP
+    WHERE id = $${entries.length + 1}
+    RETURNING *
+  `;
 
   const result = await client.query(query, [...values, id]);
   return result.rows[0];
 }
 
-module.exports = updateEntity
+module.exports = updateEntity;

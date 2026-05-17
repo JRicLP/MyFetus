@@ -6,3 +6,5 @@ const syncController = require('../controllers/syncController');
 router.post('/', syncController.syncData);
 
 module.exports = router;
+
+// app.use('/api/sync', syncRoutes);
