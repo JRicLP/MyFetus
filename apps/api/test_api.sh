@@ -3,7 +3,7 @@ set -euo pipefail
 
 API_URL="${API_URL:-http://localhost:3000/api}"
 ROOT_URL="${ROOT_URL:-http://localhost:3000}"
-DOCUMENTS_URL="${DOCUMENTS_URL:-$API_URL/documents/documents}"
+DOCUMENTS_URL="${DOCUMENTS_URL:-$API_URL/documents}"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
