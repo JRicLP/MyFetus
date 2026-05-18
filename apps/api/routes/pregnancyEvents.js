@@ -18,9 +18,25 @@
 const express = require('express');
 const router = express.Router();
 const eventsController = require('../controllers/pregnancyEventsController');
+const { authenticateToken, requireRole } = require('../middlewares/auth');
 
-router.post('/', eventsController.createEvent);
-router.get('/', eventsController.getEvents);
-router.put('/:id', eventsController.updatePregnancyEvent)
+router.post(
+  '/',
+  authenticateToken,
+  requireRole('medico', 'admin'),
+  eventsController.createEvent
+);
+router.get(
+  '/',
+  authenticateToken,
+  requireRole('gestante', 'medico', 'admin'),
+  eventsController.getEvents
+);
+router.put(
+  '/:id',
+  authenticateToken,
+  requireRole('medico', 'admin'),
+  eventsController.updatePregnancyEvent
+);
 
 module.exports = router;

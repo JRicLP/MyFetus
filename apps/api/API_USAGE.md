@@ -87,6 +87,9 @@ Observação: a listagem de gestantes faz JOIN com `users` e filtra por `role = 
 
 ### Pregnancies (gestações)
 
+Todas as rotas exigem `Authorization: Bearer <token>`.
+Listagem e criação respeitam o acesso da gestante ao próprio registro, do médico às gestantes vinculadas, e do admin a todas.
+
 - Criar: POST `/api/pregnancies`
   - JSON obrigatório: `pregnant_id`, `dum`, `dpp`, `ig_ultrassonografia` + outros campos opcionais (`weeks`, `glicemia`, `frequencia_cardiaca`, ...)
 
@@ -99,11 +102,14 @@ curl -X POST http://localhost:3000/api/pregnancies \
 ```
 
 - Listar: GET `/api/pregnancies`
-- Atualizar: PUT `/api/pregnancies/:id` (envia campos a alterar: `glicemia`, `frequencia_cardiaca`, `altura_uterina`, ...)
+- Atualizar: PUT `/api/pregnancies/:id` (`medico` ou `admin`; envia campos a alterar: `glicemia`, `frequencia_cardiaca`, `altura_uterina`, ...)
 
 ---
 
 ### Pregnancy Events (eventos da gestação)
+
+Todas as rotas exigem `Authorization: Bearer <token>`.
+Criação e atualização são permitidas para `medico` vinculado ou `admin`; consulta também permite a própria `gestante`.
 
 - Criar: POST `/api/pregnancyEvents`
   - JSON: `{ "pregnancy_id": <id>, "descricao": "...", "data_evento": "YYYY-MM-DD" }`
@@ -149,6 +155,8 @@ curl -X POST http://localhost:3000/api/documents \
 
 ### Medições fetais (medicoes)
 
+Exige `Authorization: Bearer <token>` de usuário `medico` ou `admin`.
+
 - Endpoint: POST `/api/medicoes`
   - JSON: `{ "idade_gestacional_semanas": <number>, "comp_femur_mm": <number> }`
   - A rota calcula `comp_fetal_estimado_cm = 6.18 + 0.59 * comp_femur_mm` e insere o registro na tabela `medidas_fetais`.
@@ -166,6 +174,8 @@ Resposta esperada: `201 Created` com mensagem e objeto da medição.
 ---
 
 ### Sync (sincronização)
+
+Exige `Authorization: Bearer <token>` de usuário `admin`.
 
 - Endpoint: POST `/api/sync`
 - Payload (exemplo simples):
