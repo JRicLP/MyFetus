@@ -168,10 +168,9 @@ const sanitizeForLog = (data, key = '') => {
       return sanitizeText(data.toISOString(), 'mask');
     }
     return data.toISOString();
-
-    if (Array.isArray(data)) {
   }
 
+  if (Array.isArray(data)) {
     return data.map((item) => sanitizeForLog(item, key));
   }
 
