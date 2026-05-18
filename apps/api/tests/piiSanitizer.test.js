@@ -1,3 +1,6 @@
+// como executar o teste: 
+// cd /home/agil/dev/MyFetus && docker compose run --rm backend node /app/tests/piiSanitizer.test.js
+
 const assert = require('assert');
 const {
   sanitizeForLog,
