@@ -1,0 +1,56 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: myfetus-db
+    restart: always
+    environment:
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: mydatabase
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./apps/api/db/create_tables.sql:/docker-entrypoint-initdb.d/1_create_tables.sql:ro
+      - ./apps/api/db/triggers.sql:/docker-entrypoint-initdb.d/2_triggers.sql:ro
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U myuser -d mydatabase"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - myfetus-net
+
+
+  backend:
+    build:
+      context: ./apps/api
+    container_name: myfetus-backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PG_USER: myuser
+      PG_PASSWORD: mypassword
+      PG_DATABASE: mydatabase
+      PG_HOST: db
+      PG_PORT: 5432
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    command: ["node", "server.js"]
+    volumes:
+      - ./apps/api:/app  
+      - /app/node_modules
+    working_dir: /app
+    networks:
+      - myfetus-net
+    restart: always
+
+
+volumes:
+  db_data:
+
+networks:
+  myfetus-net:
+    driver: bridge
