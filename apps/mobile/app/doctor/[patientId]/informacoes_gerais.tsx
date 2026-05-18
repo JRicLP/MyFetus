@@ -11,6 +11,7 @@ import {
   Alert, 
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { anonymizeText } from '../../../utils/anonymizeText';
 
 // --- COMPONENTE REUTILIZÁVEL 'TextAreaInput' ---
 type TextAreaInputProps = {
@@ -92,12 +93,12 @@ export default function InformacoesGeraisScreen() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          info_gerais_edemas: edemas,
-          info_gerais_sintomas: sintomas,
-          info_gerais_estado_geral_1: estadoGeral1,
-          info_gerais_estado_geral_2: estadoGeral2,
-          info_gerais_nutricional: nutricional,
-          info_gerais_psicossocial: psicossocial,
+          info_gerais_edemas: anonymizeText(edemas).text,
+          info_gerais_sintomas: anonymizeText(sintomas).text,
+          info_gerais_estado_geral_1: anonymizeText(estadoGeral1).text,
+          info_gerais_estado_geral_2: anonymizeText(estadoGeral2).text,
+          info_gerais_nutricional: anonymizeText(nutricional).text,
+          info_gerais_psicossocial: anonymizeText(psicossocial).text,
         }),
       });
 

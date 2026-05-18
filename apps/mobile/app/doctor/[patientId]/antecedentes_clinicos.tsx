@@ -11,6 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { anonymizeText } from '../../../utils/anonymizeText';
 
 // --- COMPONENTE REUTILIZÁVEL 'ToggleButton' ---
 type ToggleButtonProps = {
@@ -120,7 +121,7 @@ export default function AntecedentesClinicosScreen() {
           antecedentes_clinicos_cirur_per_uterina: cirurgiaPelvica,
           antecedentes_clinicos_cirurgia: cirurgia,
           antecedentes_clinicos_outros: outros,
-          antecedentes_clinicos_outros_texto: outrosTexto,
+          antecedentes_clinicos_outros_texto: anonymizeText(outrosTexto).text,
         }),
       });
 

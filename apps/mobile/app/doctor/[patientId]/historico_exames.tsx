@@ -11,6 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { anonymizeText } from '../../../utils/anonymizeText';
 
 //  input de data
 const formatarDataInput = (text: string) => {
@@ -93,12 +94,14 @@ export default function ExamesScreen() {
       const [dia, mes, ano] = novaData.split('/');
       const dataParaSalvar = `${ano}-${mes}-${dia}`;
 
+      const { text: descricaoAnonimizada } = anonymizeText(novaDescricao);
+
       const response = await fetch(`http://localhost:3000/api/pregnancyEvents`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           pregnancy_id: pregnancyId,
-          descricao: novaDescricao,
+          descricao: descricaoAnonimizada,
           data_evento: dataParaSalvar,
         }),
       });
