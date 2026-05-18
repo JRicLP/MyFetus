@@ -24,6 +24,7 @@
 const express = require('express');
 const router = express.Router();
 const client = require('../backend');
+const { sanitizeForLog } = require('../utils/piiSanitizer');
 
 // Rota POST para salvar medição
 router.post('/', async (req, res) => {
@@ -61,7 +62,11 @@ router.post('/', async (req, res) => {
       },
     });
   } catch (error) {
-    console.error(error);
+    console.error(sanitizeForLog({
+      message: 'Erro ao salvar medição',
+      details: error.message,
+      payload: req.body
+    }));
     res.status(500).json({ error: 'Erro ao salvar medição' });
   }
 });

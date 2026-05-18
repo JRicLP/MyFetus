@@ -27,6 +27,7 @@
  */
 require('dotenv').config();
 const { Pool } = require('pg');
+const { sanitizeForLog } = require('./utils/piiSanitizer');
 
 // Conexão ao banco de dados (usando Pool para gerenciar conexões)
 const client = new Pool({
@@ -39,7 +40,10 @@ const client = new Pool({
 
 // Teste inicial de conexão
 client.connect()
-  .then(() => console.log('✅ Conectado ao PostgreSQL com sucesso!'))
-  .catch((err) => console.error('❌ Erro ao conectar ao banco de dados:', err.message));
+  .then(() => console.log(sanitizeForLog('✅ Conectado ao PostgreSQL com sucesso!')))
+  .catch((err) => console.error(sanitizeForLog({
+    message: '❌ Erro ao conectar ao banco de dados',
+    details: err.message
+  })));
 
 module.exports = client;

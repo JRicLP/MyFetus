@@ -4,6 +4,7 @@
   */
 const client = require('../backend');
 const updateEntity = require('../utils/updateEntity');
+const { sanitizeForLog } = require('../utils/piiSanitizer');
 
 /**
  * Função 1
@@ -123,7 +124,11 @@ const updatePregnancy = async (req, res) => {
     }
     res.json(result.rows[0]);
   } catch (err) {
-    console.error(err.message);
+    console.error(sanitizeForLog({
+      message: 'Erro ao atualizar gravidez',
+      details: err.message,
+      pregnancyId: id
+    }));
     res.status(500).json({ error: err.message });
   }
 };

@@ -148,6 +148,43 @@ const maskName = (name) => {
   return `${firstName} ${abbreviated}`;
 };
 
+const shouldRedactAsName = (key) => /(^name$|_name$|patient_name|doctor_name|full_name)/i.test(key);
+const shouldRedactAsDate = (key) => /(birthdate|date|data|dum|dpp|evento)/i.test(key);
+const shouldRedactAsSecret = (key) => /(password|token|secret|authorization)/i.test(key);
+
+const sanitizeForLog = (data, key = '') => {
+  if (data === null || data === undefined) return data;
+
+  if (typeof data === 'string') {
+    if (shouldRedactAsSecret(key)) return '[REDACTED]';
+    if (shouldRedactAsName(key)) return maskName(data);
+    if (shouldRedactAsDate(key)) return sanitizeText(data, 'mask');
+    return sanitizeText(data, 'mask');
+  }
+
+  if (Array.isArray(data)) {
+    return data.map((item) => sanitizeForLog(item, key));
+  }
+
+  if (typeof data === 'object') {
+    const sanitized = {};
+
+    for (const [childKey, childValue] of Object.entries(data)) {
+      if (typeof childValue === 'string') {
+        sanitized[childKey] = sanitizeForLog(childValue, childKey);
+      } else if (Array.isArray(childValue) || (childValue && typeof childValue === 'object')) {
+        sanitized[childKey] = sanitizeForLog(childValue, childKey);
+      } else {
+        sanitized[childKey] = childValue;
+      }
+    }
+
+    return sanitized;
+  }
+
+  return data;
+};
+
 // Função 1: sanitizeText
 // Higieniza um texto livre aplicando os padrões de PII
 // Parâmetros:
@@ -245,6 +282,7 @@ module.exports = {
   sanitizeText,
   sanitizeRecord,
   sanitizeForLLM,
+  sanitizeForLog,
   maskName,
   PERSONAL_IDENTIFIERS,
   CLINICAL_DATA
