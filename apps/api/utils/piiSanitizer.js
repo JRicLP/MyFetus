@@ -162,7 +162,16 @@ const sanitizeForLog = (data, key = '') => {
     return sanitizeText(data, 'mask');
   }
 
-  if (Array.isArray(data)) {
+  // Tratar especialmente objetos Date (que também são typeof 'object')
+  if (data instanceof Date) {
+    if (shouldRedactAsDate(key)) {
+      return sanitizeText(data.toISOString(), 'mask');
+    }
+    return data.toISOString();
+
+    if (Array.isArray(data)) {
+  }
+
     return data.map((item) => sanitizeForLog(item, key));
   }
 

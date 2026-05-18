@@ -11,7 +11,8 @@
     "lint": "expo lint",
     "dev": "node backend.js",
     "test:pii": "node ./tests/piiSanitizer.test.js",
-    "test:logger": "node ./tests/logger.test.js"
+    "test:logger": "node ./tests/logger.test.js",
+    "test:db": "docker compose run --rm backend node /app/tests/database.test.js"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",
