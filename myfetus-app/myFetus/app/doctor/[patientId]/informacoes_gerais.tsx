@@ -11,6 +11,7 @@ import {
   Alert, 
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { anonymizeText } from '../../../utils/anonymizeText';
 
 // --- COMPONENTE REUTILIZÁVEL 'TextAreaInput' ---
 type TextAreaInputProps = {
@@ -61,12 +62,12 @@ export default function InformacoesGeraisScreen() {
         if (!response.ok) {
           throw new Error('Não foi possível buscar os dados da paciente');
         }
-        const data = await response.json();
-        
-        // Carregando dados da Tabela 'pregnants'
-        setEdemas(data.info_gerais_edemas || '');
-        setSintomas(data.info_gerais_sintomas || '');
-        setEstadoGeral1(data.info_gerais_estado_geral_1 || '');
+            info_gerais_edemas: anonymizeText(edemas).text,
+            info_gerais_sintomas: anonymizeText(sintomas).text,
+            info_gerais_estado_geral_1: anonymizeText(estadoGeral1).text,
+            info_gerais_estado_geral_2: anonymizeText(estadoGeral2).text,
+            info_gerais_nutricional: anonymizeText(nutricional).text,
+            info_gerais_psicossocial: anonymizeText(psicossocial).text,
         setEstadoGeral2(data.info_gerais_estado_geral_2 || '');
         setNutricional(data.info_gerais_nutricional || '');
         setPsicossocial(data.info_gerais_psicossocial || '');

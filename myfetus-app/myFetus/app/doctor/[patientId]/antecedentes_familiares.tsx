@@ -11,6 +11,7 @@ import {
   Alert, 
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { anonymizeText } from '../../../utils/anonymizeText';
 
 // --- COMPONENTE REUTILIZÁVEL 'ToggleButton'  ---
 type ToggleButtonProps = {
@@ -111,7 +112,7 @@ export default function AntecedentesFamiliaresScreen() {
           antecedentes_hipertensao: hipertensao,
           antecedentes_gemelar: gemelar,
           antecedentes_outros: outros,
-          antecedentes_texto: outrosTexto 
+          antecedentes_texto: anonymizeText(outrosTexto).text,
         }),
       });
 
