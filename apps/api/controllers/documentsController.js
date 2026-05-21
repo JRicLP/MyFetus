@@ -2,10 +2,80 @@
  * Controlador responsável por gerenciar documentos de gestantes.
  * Inclui funções para upload, listagem, consulta, atualização e exclusão de documentos.
  */
-const path = require('path');
 const fs = require('fs');
 const client = require('../backend');
-const updateEntity = require('../utils/updateEntity');
+
+const ALLOWED_DOCUMENT_UPDATE_FIELDS = ['document_name', 'document_type'];
+
+function getUploadedFile(req) {
+  return req.files?.file?.[0] || req.files?.document?.[0] || req.file || null;
+}
+
+function removeFileIfExists(filePath) {
+  if (filePath && fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+  }
+}
+
+function cleanupUploadedFile(req) {
+  const file = getUploadedFile(req);
+  removeFileIfExists(file?.path);
+}
+
+async function doctorCanAccessPregnant(doctorId, pregnantId) {
+  const result = await client.query(
+    `
+    SELECT 1
+    FROM doctor_patient_links
+    WHERE doctor_id = $1
+      AND pregnant_id = $2
+      AND status = 'active'
+    LIMIT 1
+    `,
+    [doctorId, pregnantId]
+  );
+
+  return result.rows.length > 0;
+}
+
+async function ensureCanAccessPregnant(req, res, pregnantId) {
+  if (!req.user) {
+    res.status(401).json({ error: 'Usuário não autenticado' });
+    return false;
+  }
+
+  if (!pregnantId) {
+    res.status(400).json({ error: 'pregnant_id é obrigatório.' });
+    return false;
+  }
+
+  if (req.user.role === 'admin') {
+    return true;
+  }
+
+  if (req.user.role === 'medico') {
+    const allowed = await doctorCanAccessPregnant(req.user.id, pregnantId);
+
+    if (!allowed) {
+      res.status(403).json({ error: 'Médico não vinculado a esta gestante' });
+      return false;
+    }
+
+    return true;
+  }
+
+  res.status(403).json({ error: 'Perfil de usuário não autorizado' });
+  return false;
+}
+
+async function findDocumentById(id) {
+  const result = await client.query(
+    'SELECT * FROM pregnant_documents WHERE id = $1',
+    [id]
+  );
+
+  return result.rows[0] || null;
+}
 
 /**
  * Função 1
@@ -20,14 +90,27 @@ const updateEntity = require('../utils/updateEntity');
  */
 const uploadDocument = async (req, res) => {
   try {
-    if (!req.file) return res.status(400).send('Nenhum arquivo enviado.');
+    const file = getUploadedFile(req);
+    if (!file) return res.status(400).send('Nenhum arquivo enviado.');
 
     const { pregnant_id, document_name, document_type } = req.body;
-    if (!pregnant_id) return res.status(400).send('pregnant_id é obrigatório.');
-    if (!document_name) return res.status(400).send('document_name é obrigatório.');
+    if (!pregnant_id) {
+      cleanupUploadedFile(req);
+      return res.status(400).json({ error: 'pregnant_id é obrigatório.' });
+    }
+    if (!document_name) {
+      cleanupUploadedFile(req);
+      return res.status(400).json({ error: 'document_name é obrigatório.' });
+    }
 
-    // O multer salva o arquivo em req.file.path (caminho do arquivo salvo)
-    const file_path = req.file.path;
+    const canAccess = await ensureCanAccessPregnant(req, res, pregnant_id);
+    if (!canAccess) {
+      cleanupUploadedFile(req);
+      return;
+    }
+
+    // O multer salva o arquivo em file.path (caminho do arquivo salvo)
+    const file_path = file.path;
 
     const result = await client.query(
       `INSERT INTO pregnant_documents 
@@ -41,6 +124,7 @@ const uploadDocument = async (req, res) => {
       document: result.rows[0],
     });
   } catch (err) {
+    cleanupUploadedFile(req);
     res.status(500).json({ error: err.message });
   }
 };
@@ -63,6 +147,9 @@ const getDocuments = async (req, res) => {
     return res.status(400).json({ error: 'Parâmetro pregnant_id é obrigatório' });
   }
   try {
+    const canAccess = await ensureCanAccessPregnant(req, res, pregnant_id);
+    if (!canAccess) return;
+
     const result = await client.query(
       'SELECT * FROM pregnant_documents WHERE pregnant_id = $1',
       [pregnant_id]
@@ -88,16 +175,16 @@ const getDocumentById = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const result = await client.query(
-      'SELECT * FROM pregnant_documents WHERE id = $1',
-      [id]
-    );
+    const document = await findDocumentById(id);
 
-    if (result.rows.length === 0) {
+    if (!document) {
       return res.status(404).json({ error: 'Documento não encontrado.' });
     }
 
-    res.json(result.rows[0]);
+    const canAccess = await ensureCanAccessPregnant(req, res, document.pregnant_id);
+    if (!canAccess) return;
+
+    res.json(document);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -105,6 +192,33 @@ const getDocumentById = async (req, res) => {
 
 /**
  * Função 4
+ * Baixa o arquivo físico de um documento, após validar o acesso ao prontuário.
+ */
+const downloadDocument = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const document = await findDocumentById(id);
+
+    if (!document) {
+      return res.status(404).json({ error: 'Documento não encontrado.' });
+    }
+
+    const canAccess = await ensureCanAccessPregnant(req, res, document.pregnant_id);
+    if (!canAccess) return;
+
+    if (!document.file_path || !fs.existsSync(document.file_path)) {
+      return res.status(404).json({ error: 'Arquivo do documento não encontrado.' });
+    }
+
+    res.download(document.file_path, document.document_name);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+/**
+ * Função 5
  * Exclui um documento e o arquivo físico associado.
  * 
  * Parâmetros:
@@ -118,21 +232,16 @@ const deleteDocument = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const doc = await client.query(
-      'SELECT * FROM pregnant_documents WHERE id = $1',
-      [id]
-    );
+    const doc = await findDocumentById(id);
 
-    if (doc.rows.length === 0) {
+    if (!doc) {
       return res.status(404).json({ error: 'Documento não encontrado.' });
     }
 
-    const { file_path } = doc.rows[0];
+    const canAccess = await ensureCanAccessPregnant(req, res, doc.pregnant_id);
+    if (!canAccess) return;
 
-    // Remover o arquivo do disco
-    if (file_path && fs.existsSync(file_path)) {
-      fs.unlinkSync(file_path);
-    }
+    removeFileIfExists(doc.file_path);
 
     await client.query('DELETE FROM pregnant_documents WHERE id = $1', [id]);
 
@@ -143,7 +252,7 @@ const deleteDocument = async (req, res) => {
 };
 
 /**
- * Função 5
+ * Função 6
  * Atualiza as informações de um documento existente.
  * 
  * Parâmetros:
@@ -155,9 +264,37 @@ const deleteDocument = async (req, res) => {
  */
 const updateDocument = async (req, res) => {
   try {
-    // updateEntity deve receber o nome correto da tabela
-    const updatedDoc = await updateEntity('pregnant_documents', req.params.id, req.body);
-    if (!updatedDoc) return res.status(404).send('Documento não encontrado');
+    const document = await findDocumentById(req.params.id);
+    if (!document) return res.status(404).send('Documento não encontrado');
+
+    const canAccess = await ensureCanAccessPregnant(req, res, document.pregnant_id);
+    if (!canAccess) return;
+
+    const entries = Object.entries(req.body).filter(([field, value]) => (
+      ALLOWED_DOCUMENT_UPDATE_FIELDS.includes(field) &&
+      value !== undefined
+    ));
+
+    if (entries.length === 0) {
+      return res.status(400).json({ error: 'Nenhum campo válido para atualizar.' });
+    }
+
+    const setClause = entries
+      .map(([field], index) => `${field} = $${index + 1}`)
+      .join(', ');
+    const values = entries.map(([, value]) => value);
+
+    const result = await client.query(
+      `
+      UPDATE pregnant_documents
+      SET ${setClause}, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $${values.length + 1}
+      RETURNING *
+      `,
+      [...values, req.params.id]
+    );
+
+    const updatedDoc = result.rows[0];
     res.json(updatedDoc);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -168,6 +305,7 @@ module.exports = {
   uploadDocument,
   getDocuments,
   getDocumentById,
+  downloadDocument,
   deleteDocument,
   updateDocument,
 };

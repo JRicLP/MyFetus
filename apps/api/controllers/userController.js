@@ -8,6 +8,14 @@ const bcrypt = require('bcrypt');
 
 const SALT_ROUNDS = 10
 
+// Função de Sanitização de usuário:
+function sanitizeUser(user) {
+  if (!user) return null;
+
+  const { password, ...safeUser } = user;
+  return safeUser;
+}
+
 // TODO: validação
 /**
  * Função 1
@@ -21,11 +29,17 @@ const SALT_ROUNDS = 10
  *  - [JSON]: Usuário criado com sucesso.
  */
 const createUser = async (req, res) => {
-  const { name, email, password, birthdate, is_active = true, role = 'user' } = req.body;
+  const { name, email, password, birthdate } = req.body;
+  const is_active = true;
+  const role = 'gestante';
   try {
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
     const result = await client.query(
-      'INSERT INTO users (name, email, password, birthdate, is_active, role) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+        `
+        INSERT INTO users (name, email, password, birthdate, is_active, role)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING id, name, email, birthdate, is_active, role, created_at, updated_at
+        `,
       [name, email, hashedPassword, birthdate, is_active, role]
     );
     res.status(201).json(result.rows[0]);
@@ -47,7 +61,11 @@ const createUser = async (req, res) => {
  */
 const getUsers = async (req, res) => {
   try {
-    const result = await client.query('SELECT * FROM users');
+    const result = await client.query(`
+      SELECT id, name, email, birthdate, is_active, role, created_at, updated_at
+      FROM users
+      ORDER BY id ASC
+    `);
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -67,7 +85,14 @@ const getUsers = async (req, res) => {
  */
 const getUserById = async (req, res) => {
   try {
-    const result = await client.query('SELECT * FROM users WHERE id = $1', [req.params.id]);
+    const result = await client.query(
+      `
+      SELECT id, name, email, birthdate, is_active, role, created_at, updated_at
+      FROM users
+      WHERE id = $1
+      `,
+     [req.params.id]
+    );
     if (result.rows.length === 0) return res.status(404).send('Usuário não encontrado');
     res.json(result.rows[0]);
   } catch (err) {
@@ -98,7 +123,7 @@ const updateUser = async (req, res) => {
 
     const updatedUser = await updateEntity('users', req.params.id, updateData);
     if (!updatedUser) return res.status(404).send('Usuário não encontrado');
-    res.json(updatedUser);
+    res.json(sanitizeUser(updatedUser));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -138,6 +163,7 @@ const deleteUser = async (req, res) => {
  */
 const loginUser = async (req, res) => {
   const { email, password } = req.body;
+  const jwt = require('jsonwebtoken');
 
   try {
     const result = await client.query('SELECT * FROM users WHERE email = $1', [email]);
@@ -148,15 +174,27 @@ const loginUser = async (req, res) => {
       return res.status(401).json({ error: 'Login ou senha inválidos' });
     }
 
-    res.status(200).json({
-      message: 'Login bem-sucedido',
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role
-      }
-    });
+  const token = jwt.sign(
+    {
+      id: user.id,
+      role: user.role
+   },
+    process.env.JWT_SECRET,
+    {
+      expiresIn: process.env.JWT_EXPIRES_IN || '8h'
+   }
+  );
+
+  res.status(200).json({
+    message: 'Login bem-sucedido',
+    token,
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role
+    }
+  });
   } catch (err) {
     res.status(500).json({ error: 'Erro no servidor' });
   }

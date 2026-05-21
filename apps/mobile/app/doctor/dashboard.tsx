@@ -66,7 +66,7 @@ export default function DashboardScreen() {
         }
 
         // 2. Lista de Pacientes (API Melhorada)
-        const response = await fetch(`http://localhost:3000/api/pregnants`);
+        const data = await apiFetch('/api/pregnants');
         if (!response.ok) throw new Error('Erro ao buscar pacientes');
         const data = await response.json();
         setPatients(data);

@@ -17,10 +17,33 @@
 const express = require('express');
 const router = express.Router();
 const pregnantController = require('../controllers/pregnantController');
+const { authenticateToken, requireRole } = require('../middlewares/auth');
 
-router.post('/', pregnantController.createPregnant);
-router.get('/', pregnantController.getPregnants);
-router.put('/:id', pregnantController.updatePregnant);
-router.get('/:id', pregnantController.getPregnantById);
+router.post(
+  '/',
+  authenticateToken,
+  requireRole('gestante', 'admin'),
+  pregnantController.createPregnant
+);
+
+router.get(
+  '/',
+  authenticateToken,
+  requireRole('medico', 'admin'),
+  pregnantController.getPregnants
+);
+
+router.get(
+  '/:id',
+  authenticateToken,
+  pregnantController.getPregnantById
+);
+
+router.put(
+  '/:id',
+  authenticateToken,
+  requireRole('medico', 'admin'),
+  pregnantController.updatePregnant
+);
 
 module.exports = router;

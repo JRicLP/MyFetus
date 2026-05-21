@@ -4,6 +4,10 @@
   */
 const client = require('../backend');
 const updateEntity = require('../utils/updateEntity');
+const {
+  ensureCanAccessPregnant,
+  ensureCanAccessPregnancy,
+} = require('../utils/clinicalAccess');
 
 /**
  * Função 1
@@ -19,10 +23,17 @@ const updateEntity = require('../utils/updateEntity');
 const createPregnancy = async (req, res) => {
   const { pregnant_id, weeks, is_checked = false, dum, dpp, ccn = 0.0, dgm = 0.0, glicemia = 0, frequencia_cardiaca = 0, altura_uterina=0.0, regularidade_do_ciclo = true, ig_ultrassonografia } = req.body;
 
+  if (!pregnant_id) {
+    return res.status(400).json({ error: 'pregnant_id é obrigatório' });
+  }
+
   if (!dum || !dpp || !ig_ultrassonografia) {
     return res.status(400).json({ error: 'Campos dum, dpp, glicemia, frequencia_cardiaca e ig_ultrassonografia são obrigatórios' });
   }
   try {
+    const canAccess = await ensureCanAccessPregnant(req, res, pregnant_id);
+    if (!canAccess) return;
+
     const result = await client.query(
       'INSERT INTO pregnancies (pregnant_id, weeks, is_checked, dum, dpp, ccn, dgm, glicemia, frequencia_cardiaca, altura_uterina, regularidade_do_ciclo, ig_ultrassonografia) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *',
       [pregnant_id, weeks, is_checked, dum, dpp, ccn, dgm, glicemia, frequencia_cardiaca, altura_uterina, regularidade_do_ciclo, ig_ultrassonografia]
@@ -46,7 +57,35 @@ const createPregnancy = async (req, res) => {
  */
 const getPregnancies = async (req, res) => {
   try {
-    const result = await client.query('SELECT * FROM pregnancies');
+    let query;
+    let params = [];
+
+    if (req.user.role === 'admin') {
+      query = 'SELECT * FROM pregnancies ORDER BY created_at DESC';
+    } else if (req.user.role === 'medico') {
+      query = `
+        SELECT preg.*
+        FROM pregnancies preg
+        JOIN doctor_patient_links dpl ON dpl.pregnant_id = preg.pregnant_id
+        WHERE dpl.doctor_id = $1
+          AND dpl.status = 'active'
+        ORDER BY preg.created_at DESC
+      `;
+      params = [req.user.id];
+    } else if (req.user.role === 'gestante') {
+      query = `
+        SELECT preg.*
+        FROM pregnancies preg
+        JOIN pregnants p ON p.id = preg.pregnant_id
+        WHERE p.user_id = $1
+        ORDER BY preg.created_at DESC
+      `;
+      params = [req.user.id];
+    } else {
+      return res.status(403).json({ error: 'Perfil de usuário não autorizado' });
+    }
+
+    const result = await client.query(query, params);
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -117,6 +156,9 @@ const updatePregnancy = async (req, res) => {
   `;
 
   try {
+    const pregnancy = await ensureCanAccessPregnancy(req, res, id);
+    if (!pregnancy) return;
+
     const result = await client.query(query, values);
     if (result.rows.length === 0) {
       return res.status(404).send('Gravidez não encontrada');

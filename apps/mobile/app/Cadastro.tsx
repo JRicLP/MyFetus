@@ -2,7 +2,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image, Acti
 import { useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 // IMPORTANTE: Adicionado useLocalSearchParams
-import { useRouter, useLocalSearchParams } from 'expo-router'; 
+import { useRouter, useLocalSearchParams } from 'expo-router';
 
 export default function Cadastro() {
   const [nome, setNome] = useState('');
@@ -109,7 +109,7 @@ export default function Cadastro() {
         email: email,
         password: senha,
         birthdate: dataFormatada, // O campo é enviado sempre
-        role: isMedico ? 'admin' : 'user' 
+        role: isMedico ? 'medico' : 'gestante' // Define a role com base no parâmetro da URL
       };
 
       const response = await fetch('http://localhost:3000/api/users', { 
