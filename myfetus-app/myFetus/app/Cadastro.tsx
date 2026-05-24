@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 // IMPORTANTE: Adicionado useLocalSearchParams
 import { useRouter, useLocalSearchParams } from 'expo-router'; 
+import { apiUrl } from '../utils/api';
 
 export default function Cadastro() {
   const [nome, setNome] = useState('');
@@ -112,7 +113,7 @@ export default function Cadastro() {
         role: isMedico ? 'admin' : 'user' 
       };
 
-      const response = await fetch('http://localhost:3000/api/users', { 
+      const response = await fetch(apiUrl('/api/users'), { 
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

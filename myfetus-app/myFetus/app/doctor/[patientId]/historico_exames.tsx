@@ -1,140 +1,149 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput, 
-  TouchableOpacity,
-  StyleSheet,
-  SafeAreaView,
-  FlatList, 
   ActivityIndicator,
   Alert,
+  FlatList,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as WebBrowser from 'expo-web-browser';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { apiUrl } from '../../../utils/api';
 
-//  input de data
-const formatarDataInput = (text: string) => {
-  const cleaned = text.replace(/\D/g, ''); // Remove tudo que não for dígito
-  if (cleaned.length > 4) {
-    return `${cleaned.slice(0, 2)}/${cleaned.slice(2, 4)}/${cleaned.slice(4, 8)}`;
-  } else if (cleaned.length > 2) {
-    return `${cleaned.slice(0, 2)}/${cleaned.slice(2, 4)}`;
-  }
-  return cleaned;
+type StoredUser = {
+  id: number;
+  role: string;
 };
-//  Interface para os dados do exame
-interface Exame {
-  id: string;
-  data_evento: string;
-  descricao: string;
-}
+
+type PregnantDocument = {
+  id: number;
+  pregnant_id: number;
+  document_name: string;
+  document_type: string | null;
+  uploaded_at: string;
+  status: 'pending' | 'reviewed' | string;
+  report_comment: string | null;
+  reviewed_at: string | null;
+  download_url?: string | null;
+};
 
 export default function ExamesScreen() {
   const router = useRouter();
   const { patientId } = useLocalSearchParams();
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [exames, setExames] = useState<Exame[]>([]); 
-  const [pregnancyId, setPregnancyId] = useState<string | null>(null); 
+  const [docs, setDocs] = useState<PregnantDocument[]>([]);
+  const [selectedDocId, setSelectedDocId] = useState<number | null>(null);
+  const [reportText, setReportText] = useState('');
+  const [doctorUserId, setDoctorUserId] = useState<number | null>(null);
 
-  // Estados para o novo exame
-  const [novaData, setNovaData] = useState('');
-  const [novaDescricao, setNovaDescricao] = useState('');
+  const selectedDoc = useMemo(
+    () => (selectedDocId ? docs.find((d) => d.id === selectedDocId) : undefined),
+    [docs, selectedDocId]
+  );
 
-  // --- useEffect para LER os dados ---
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem('userData');
+        if (!raw) return;
+        const parsed = JSON.parse(raw) as StoredUser;
+        if (parsed?.id) setDoctorUserId(parsed.id);
+      } catch {
+        // ignore
+      }
+    })();
+  }, []);
+
+  const fetchDocs = useCallback(async () => {
+    if (!patientId) return;
+    const res = await fetch(apiUrl(`/api/documents/documents?pregnant_id=${patientId}`));
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.error || 'Não foi possível buscar os exames enviados');
+    }
+    setDocs(Array.isArray(data) ? data : []);
+  }, [patientId]);
+
   useEffect(() => {
     if (!patientId) return;
-
-    const fetchAllData = async () => {
+    (async () => {
+      setLoading(true);
       try {
-        setLoading(true);
-        // 1. ID da GESTAÇÃO (pregnancyId)
-        const pregResponse = await fetch(`http://localhost:3000/api/pregnants/${patientId}`);
-        if (!pregResponse.ok) {
-          throw new Error('Não foi possível buscar os dados da paciente');
-        }
-        const data = await pregResponse.json();
-        
-        if (data.latest_pregnancy && data.latest_pregnancy.id) {
-          const currentPregnancyId = data.latest_pregnancy.id;
-          setPregnancyId(currentPregnancyId);
-
-          // 2. Agora, buscamos os exames dessa gestação
-          const eventsResponse = await fetch(`http://localhost:3000/api/pregnancyEvents?pregnancy_id=${currentPregnancyId}`);
-          if (!eventsResponse.ok) {
-            throw new Error('Não foi possível buscar os exames');
-          }
-          const eventsData = await eventsResponse.json();
-          setExames(eventsData);
-        } else {
-          Alert.alert('Erro', 'Nenhuma gestação ativa encontrada para esta paciente.');
-        }
-
-      } catch (error) {
-        console.error(error);
-        Alert.alert('Erro', error instanceof Error ? error.message : 'Erro de rede');
+        await fetchDocs();
+      } catch (err) {
+        Alert.alert('Erro', err instanceof Error ? err.message : 'Erro de rede');
       } finally {
         setLoading(false);
       }
-    };
-    fetchAllData();
-  }, [patientId]);
-  
-  // ---  handleAddExame para SALVAR ---
-  const handleAddExame = async () => {
-    if (isSaving || !pregnancyId || !novaData || !novaDescricao) {
-      Alert.alert('Erro', 'Por favor, preencha a data e a descrição do novo exame.');
+    })();
+  }, [patientId, fetchDocs]);
+
+  const formatDate = useCallback((iso: string) => {
+    if (!iso) return '';
+    const dt = new Date(iso);
+    if (Number.isNaN(dt.getTime())) return '';
+    return dt.toLocaleDateString();
+  }, []);
+
+  const handleSelect = useCallback((doc: PregnantDocument) => {
+    setSelectedDocId(doc.id);
+    setReportText(doc.report_comment || '');
+  }, []);
+
+  const handleSaveReport = useCallback(async () => {
+    if (isSaving || !selectedDocId) return;
+    if (!reportText.trim()) {
+      Alert.alert('Erro', 'Escreva o comentário/relatório do médico.');
       return;
     }
+
     setIsSaving(true);
-
     try {
-      // Converte a data para AAAA-MM-DD
-      const [dia, mes, ano] = novaData.split('/');
-      const dataParaSalvar = `${ano}-${mes}-${dia}`;
-
-      const response = await fetch(`http://localhost:3000/api/pregnancyEvents`, {
-        method: 'POST',
+      const res = await fetch(apiUrl(`/api/documents/documents/${selectedDocId}/report`), {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          pregnancy_id: pregnancyId,
-          descricao: novaDescricao,
-          data_evento: dataParaSalvar,
+          report_comment: reportText.trim(),
+          doctor_user_id: doctorUserId,
         }),
       });
-
-      if (!response.ok) {
-        throw new Error('Falha ao salvar o novo exame');
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || 'Falha ao salvar relatório');
       }
 
-      const novoExame = await response.json();
-      
-      // Adiciona o novo exame no topo da lista 
-      setExames([novoExame, ...exames]);
-      
-      // Limpa os campos
-      setNovaData('');
-      setNovaDescricao('');
+      const updated = data?.document;
+      if (updated?.id) {
+        setDocs((prev) => prev.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)));
+      } else {
+        await fetchDocs();
+      }
 
-    } catch (error) {
-      console.error(error);
-      Alert.alert('Erro ao Salvar', error instanceof Error ? error.message : 'Erro de rede');
+      Alert.alert('Sucesso', 'Relatório enviado para a paciente.');
+    } catch (err) {
+      Alert.alert('Erro', err instanceof Error ? err.message : 'Erro de rede');
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [isSaving, selectedDocId, reportText, doctorUserId, fetchDocs]);
+
+  const openDownload = useCallback(async (docId: number) => {
+    const url = apiUrl(`/api/documents/documents/${docId}/download`);
+    try {
+      await WebBrowser.openBrowserAsync(url);
+    } catch {
+      Alert.alert('Erro', 'Não foi possível abrir o exame');
+    }
+  }, []);
 
   const handleNext = () => {
     router.push(`/doctor/${patientId}/informacoes_gerais`);
-  };
-
-  const formatarData = (dataISO: string) => {
-    if (!dataISO) return "Data Inválida";
-    const dataObj = new Date(dataISO);
-    const dia = String(dataObj.getUTCDate()).padStart(2, '0');
-    const mes = String(dataObj.getUTCMonth() + 1).padStart(2, '0');
-    const ano = dataObj.getUTCFullYear();
-    return `${dia}/${mes}/${ano}`;
   };
 
   if (loading) {
@@ -144,50 +153,57 @@ export default function ExamesScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <FlatList
-        data={exames}
+        data={docs}
         contentContainerStyle={styles.container}
-        keyExtractor={(item) => item.id.toString()}
-        
-        // ---  Formulário de Adicionar ---
+        keyExtractor={(item) => String(item.id)}
         ListHeaderComponent={(
           <View style={styles.addCard}>
-            <Text style={styles.addTitle}>Adicionar Novo Exame</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Data (DD/MM/AAAA)"
-              value={novaData}
-              onChangeText={(text) => setNovaData(formatarDataInput(text))} 
-              keyboardType="numeric"
-              maxLength={10}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Descrição do exame"
-              value={novaDescricao}
-              onChangeText={setNovaDescricao}
-              multiline
-            />
-            <TouchableOpacity 
-              style={[styles.addButton, isSaving && styles.addButtonDisabled]} 
-              onPress={handleAddExame}
-              disabled={isSaving}
-            >
-              <Text style={styles.addButtonText}>{isSaving ? "Salvando..." : "Adicionar Exame"}</Text>
-            </TouchableOpacity>
+            <Text style={styles.addTitle}>Exames Enviados pela Paciente</Text>
+            <Text style={styles.helperText}>Selecione um exame para escrever o relatório.</Text>
+
+            {selectedDoc ? (
+              <View style={styles.reportEditor}>
+                <Text style={styles.selectedTitle}>{selectedDoc.document_name}</Text>
+                <Text style={styles.meta}>Enviado em: {formatDate(selectedDoc.uploaded_at)}</Text>
+                <TouchableOpacity style={styles.openButton} onPress={() => openDownload(selectedDoc.id)}>
+                  <Text style={styles.openButtonText}>Abrir exame</Text>
+                </TouchableOpacity>
+
+                <TextInput
+                  style={styles.input}
+                  placeholder="Escreva o relatório/comentário para a paciente"
+                  value={reportText}
+                  onChangeText={setReportText}
+                  multiline
+                />
+                <TouchableOpacity
+                  style={[styles.addButton, isSaving && styles.addButtonDisabled]}
+                  onPress={handleSaveReport}
+                  disabled={isSaving}
+                >
+                  <Text style={styles.addButtonText}>{isSaving ? 'Enviando...' : 'Enviar relatório'}</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <Text style={styles.noSelection}>Nenhum exame selecionado.</Text>
+            )}
           </View>
         )}
-        
-        // --- Lista de Exames Salvos ---
+        ListEmptyComponent={<Text style={styles.emptyText}>Nenhum exame enviado ainda.</Text>}
         renderItem={({ item }) => (
-          <View style={styles.card}>
-            <Text style={styles.cardData}>{formatarData(item.data_evento)}</Text>
-            <View style={styles.descricaoBox}>
-              <Text style={styles.descricaoText}>{item.descricao}</Text>
+          <TouchableOpacity onPress={() => handleSelect(item)}>
+            <View style={styles.card}>
+              <View style={styles.rowBetween}>
+                <Text style={styles.cardTitle}>{item.document_name}</Text>
+                <Text style={styles.cardStatus}>{item.status === 'reviewed' ? 'Respondido' : 'Pendente'}</Text>
+              </View>
+              <Text style={styles.cardData}>Enviado em: {formatDate(item.uploaded_at)}</Text>
+              <Text style={styles.previewText} numberOfLines={2}>
+                {item.report_comment?.trim() ? item.report_comment : 'Sem relatório ainda.'}
+              </Text>
             </View>
-          </View>
+          </TouchableOpacity>
         )}
-        
-        // --- Botão de Navegação ---
         ListFooterComponent={(
           <TouchableOpacity style={styles.button} onPress={handleNext}>
             <Text style={styles.buttonText}>Informações Gerais (Tela 13)</Text>
@@ -208,7 +224,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     padding: 20,
   },
-  // --- Estilos do Formulário de Adicionar ---
   addCard: {
     backgroundColor: '#FFF',
     borderRadius: 20,
@@ -221,6 +236,52 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 15,
+  },
+  helperText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 10,
+  },
+  noSelection: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 8,
+  },
+  emptyText: {
+    textAlign: 'center',
+    color: '#666',
+    marginTop: 12,
+  },
+  reportEditor: {
+    marginTop: 12,
+    backgroundColor: '#F0EFFF',
+    borderRadius: 16,
+    padding: 14,
+  },
+  selectedTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 6,
+  },
+  meta: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 10,
+  },
+  openButton: {
+    borderWidth: 1,
+    borderColor: '#27ae60',
+    paddingVertical: 10,
+    borderRadius: 25,
+    alignItems: 'center',
+    marginBottom: 10,
+    backgroundColor: '#fff',
+  },
+  openButtonText: {
+    color: '#27ae60',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   input: {
     backgroundColor: '#F0EFFF',
@@ -244,7 +305,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  // --- Estilos da Lista de Exames ---
   card: {
     backgroundColor: '#F0EFFF',
     borderRadius: 20,
@@ -252,22 +312,34 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     elevation: 2,
   },
+  rowBetween: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+  },
+  cardTitle: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  cardStatus: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#886aea',
+  },
   cardData: {
-    fontSize: 16,
-    color: '#555',
-    marginBottom: 10,
+    fontSize: 12,
+    color: '#666',
+    marginTop: 8,
   },
-  descricaoBox: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 15,
-    padding: 15,
-  },
-  descricaoText: {
-    fontSize: 16,
+  previewText: {
+    fontSize: 14,
     color: '#444',
-    lineHeight: 22,
+    marginTop: 10,
+    lineHeight: 20,
   },
-  // --- Botão de Navegação ---
   button: {
     backgroundColor: '#886aea',
     padding: 15,

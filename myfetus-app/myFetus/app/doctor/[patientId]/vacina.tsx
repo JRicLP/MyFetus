@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { apiUrl } from '../../../utils/api';
 
 
 
@@ -126,7 +127,7 @@ export default function VacinasScreen() {
     const fetchPatientData = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`http://localhost:3000/api/pregnants/${patientId}`);
+        const response = await fetch(apiUrl(`/api/pregnants/${patientId}`));
         if (!response.ok) {
           throw new Error('Não foi possível buscar os dados da paciente');
         }
@@ -168,7 +169,7 @@ export default function VacinasScreen() {
     
     try {
       // 1. ALIMENTANDO O BD (Tabela 'pregnants')
-      const response = await fetch(`http://localhost:3000/api/pregnants/${patientId}`, {
+      const response = await fetch(apiUrl(`/api/pregnants/${patientId}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

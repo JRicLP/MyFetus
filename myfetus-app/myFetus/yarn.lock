@@ -3424,6 +3424,11 @@ expo-constants@*, expo-constants@~17.1.6, expo-constants@~17.1.7:
     "@expo/config" "~11.0.12"
     "@expo/env" "~1.0.7"
 
+expo-document-picker@~13.1.6:
+  version "13.1.6"
+  resolved "https://registry.npmjs.org/expo-document-picker/-/expo-document-picker-13.1.6.tgz"
+  integrity sha512-8FTQPDOkyCvFN/i4xyqzH7ELW4AsB6B3XBZQjn1FEdqpozo6rpNJRr7sWFU/93WrLgA9FJEKpKbyr6XxczK6BA==
+
 expo-file-system@~18.1.11:
   version "18.1.11"
   resolved "https://registry.npmjs.org/expo-file-system/-/expo-file-system-18.1.11.tgz"

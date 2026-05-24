@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import { getLastPeriod, calculateGestationWeek, getBabySize, getBabyDescription, calculateDPP } from '../../utils/gestationUtils';
 
 const WEB_MAX_WIDTH = 430;
@@ -58,21 +57,14 @@ const fetusImages: { [key: string]: any } = {
 };
 
 const getFetusImage = (week: number) => {
-  if (week < 4) {
-    return require('../../assets/images/fetus-heart.png');
-  }
-
-  const clampedWeek = Math.min(week, 41);
-  const formattedWeek = clampedWeek.toString().padStart(2, '0');
-  return fetusImages[formattedWeek] || require('../../assets/images/fetus-heart.png');
+  const formattedWeek = week.toString().padStart(2, '0');
+  return fetusImages[formattedWeek];
 };
 
 export default function HomeScreen() {
   const { width: windowWidth, height } = useWindowDimensions();
   const width = Platform.OS === 'web' ? Math.min(windowWidth, WEB_MAX_WIDTH) : windowWidth;
   const styles = React.useMemo(() => createStyles(width, height), [width, height]);
-
-  const router = useRouter();
 
   const [gestationWeek, setGestationWeek] = useState(0);
   const [babySize, setBabySize] = useState('');
@@ -82,22 +74,19 @@ export default function HomeScreen() {
   useEffect(() => {
     const loadGestationData = async () => {
       const lastPeriod = await getLastPeriod();
-      if (!lastPeriod) {
-        router.replace('/welcome');
-        return;
+      if (lastPeriod) {
+        console.log('Index - Data última menstruação:', lastPeriod);
+        const result = calculateGestationWeek(lastPeriod);
+        console.log('Index - Semana calculada:', result.weeks);
+        setGestationWeek(result.weeks);
+        setBabySize(getBabySize(result.weeks));
+        setBabyDescription(getBabyDescription(result.weeks));
+        setDPP(calculateDPP(lastPeriod));
       }
-
-      console.log('Index - Data última menstruação:', lastPeriod);
-      const result = calculateGestationWeek(lastPeriod);
-      console.log('Index - Semana calculada:', result.weeks);
-      setGestationWeek(result.weeks);
-      setBabySize(getBabySize(result.weeks));
-      setBabyDescription(getBabyDescription(result.weeks));
-      setDPP(calculateDPP(lastPeriod));
     };
 
     loadGestationData();
-  }, [router]);
+  }, []);
 
   return (
     <LinearGradient

@@ -179,7 +179,13 @@ CREATE TABLE IF NOT EXISTS pregnant_documents (
     document_type VARCHAR(100),
     file_path TEXT NOT NULL,
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    -- fluxo de relatório do médico
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    report_comment TEXT,
+    reviewed_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    reviewed_at TIMESTAMP
 );
 
 -- =====================================================
