@@ -40,11 +40,30 @@ const logger = require('./utils/logger');
 
 const app = express();
 
-// Configuração do CORS — permite requisições do frontend (por exemplo, React ou Expo)
+const allowedOrigins = (process.env.CORS_ORIGIN || [
+  'http://localhost:8081',
+  'http://localhost:19006',
+  'http://localhost:3000',
+  'http://127.0.0.1:8081',
+  'http://127.0.0.1:19006',
+  'http://127.0.0.1:3000',
+].join(','))
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+// Configuração do CORS — em produção, defina CORS_ORIGIN com os domínios permitidos.
 app.use(cors({
-  origin: '*', // em produção, substitua pelo domínio do frontend
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error('Origin não permitido pelo CORS'));
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
 }));
 
 //Middlewares para interpretar JSON e formulários
@@ -76,7 +95,7 @@ app.use('/api/sync', syncRoutes);
 
 //Rota de teste (para verificar se o backend está no ar)
 app.get('/ping', (req, res) => {
-  res.json({ message: 'Pong! 🏓 Backend funcionando corretamente.' });
+  res.json({ message: 'Backend funcionando corretamente.' });
 });
 
 //Inicializa o servidor
@@ -86,4 +105,3 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   logger.startup(`🚀 Servidor rodando em http://0.0.0.0:${PORT}`);
 });
-

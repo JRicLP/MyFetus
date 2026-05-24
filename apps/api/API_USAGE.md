@@ -20,6 +20,9 @@ docker compose restart backend
   - `PG_HOST` (default `myfetus-db`)
   - `PG_PORT` (default `5432`)
   - `PORT` (default `3000`)
+  - `JWT_SECRET` (obrigatório para rotas autenticadas)
+  - `JWT_EXPIRES_IN` (default `8h`)
+  - `CORS_ORIGIN` (origens permitidas separadas por vírgula)
 
 Base URL padrão: `http://localhost:3000/api`
 
@@ -84,6 +87,9 @@ Observação: a listagem de gestantes faz JOIN com `users` e filtra por `role = 
 
 ### Pregnancies (gestações)
 
+Todas as rotas exigem `Authorization: Bearer <token>`.
+Listagem e criação respeitam o acesso da gestante ao próprio registro, do médico às gestantes vinculadas, e do admin a todas.
+
 - Criar: POST `/api/pregnancies`
   - JSON obrigatório: `pregnant_id`, `dum`, `dpp`, `ig_ultrassonografia` + outros campos opcionais (`weeks`, `glicemia`, `frequencia_cardiaca`, ...)
 
@@ -96,11 +102,14 @@ curl -X POST http://localhost:3000/api/pregnancies \
 ```
 
 - Listar: GET `/api/pregnancies`
-- Atualizar: PUT `/api/pregnancies/:id` (envia campos a alterar: `glicemia`, `frequencia_cardiaca`, `altura_uterina`, ...)
+- Atualizar: PUT `/api/pregnancies/:id` (`medico` ou `admin`; envia campos a alterar: `glicemia`, `frequencia_cardiaca`, `altura_uterina`, ...)
 
 ---
 
 ### Pregnancy Events (eventos da gestação)
+
+Todas as rotas exigem `Authorization: Bearer <token>`.
+Criação e atualização são permitidas para `medico` vinculado ou `admin`; consulta também permite a própria `gestante`.
 
 - Criar: POST `/api/pregnancyEvents`
   - JSON: `{ "pregnancy_id": <id>, "descricao": "...", "data_evento": "YYYY-MM-DD" }`
@@ -119,29 +128,34 @@ curl -X POST http://localhost:3000/api/pregnancyEvents \
 
 ### Documents (documentos da gestante)
 
-> Nota: a rota monta os handlers como `/api/documents`, mas os handlers internos usam o subcaminho `documents`. Logo, a URL completa para upload/lista é `/api/documents/documents`.
+Todas as rotas exigem `Authorization: Bearer <token>` de usuário `medico` ou `admin`.
+Médicos só acessam documentos de gestantes vinculadas em `doctor_patient_links`.
 
-- Upload (multipart): POST `/api/documents/documents`
-  - Form fields: `pregnant_id` (number), `document_name` (string), `document_type` (string), `document` (file)
+- Upload (multipart): POST `/api/documents`
+  - Form fields: `pregnant_id` (number), `document_name` (string), `document_type` (string), `file` ou `document` (arquivo)
 
 Exemplo:
 
 ```bash
-curl -X POST http://localhost:3000/api/documents/documents \
+curl -X POST http://localhost:3000/api/documents \
+  -H "Authorization: Bearer SEU_TOKEN" \
   -F "pregnant_id=4" \
   -F "document_name=Ultrassom Inicial" \
   -F "document_type=pdf" \
-  -F "document=@/caminho/para/arquivo.pdf"
+  -F "file=@/caminho/para/arquivo.pdf"
 ```
 
-- Listar por `pregnant_id`: GET `/api/documents/documents?pregnant_id=<id>`
-- Consultar por id: GET `/api/documents/documents/:id`
-- Atualizar metadados: PUT `/api/documents/documents/:id` (JSON com campos a alterar)
-- Deletar: DELETE `/api/documents/documents/:id`
+- Listar por `pregnant_id`: GET `/api/documents?pregnant_id=<id>`
+- Consultar por id: GET `/api/documents/:id`
+- Baixar arquivo: GET `/api/documents/:id/download`
+- Atualizar metadados: PUT `/api/documents/:id` (JSON com `document_name` e/ou `document_type`)
+- Deletar: DELETE `/api/documents/:id`
 
 ---
 
 ### Medições fetais (medicoes)
+
+Exige `Authorization: Bearer <token>` de usuário `medico` ou `admin`.
 
 - Endpoint: POST `/api/medicoes`
   - JSON: `{ "idade_gestacional_semanas": <number>, "comp_femur_mm": <number> }`
@@ -160,6 +174,8 @@ Resposta esperada: `201 Created` com mensagem e objeto da medição.
 ---
 
 ### Sync (sincronização)
+
+Exige `Authorization: Bearer <token>` de usuário `admin`.
 
 - Endpoint: POST `/api/sync`
 - Payload (exemplo simples):

@@ -633,4 +633,3 @@ ALTER TABLE ONLY public.pregnants
 --
 
 \unrestrict JF1XBwFQ4moxROhQbmObpAkSFKXB2ZJK3OLnuWc53cF0SLfA7krADblhAxS3Ccw
-

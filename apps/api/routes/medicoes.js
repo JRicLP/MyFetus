@@ -25,9 +25,10 @@ const express = require('express');
 const router = express.Router();
 const client = require('../backend');
 const logger = require('../utils/logger');
+const { authenticateToken, requireRole } = require('../middlewares/auth');
 
 // Rota POST para salvar medição
-router.post('/', async (req, res) => {
+router.post('/', authenticateToken, requireRole('medico', 'admin'), async (req, res) => {
   try {
     const { idade_gestacional_semanas, comp_femur_mm } = req.body;
 
