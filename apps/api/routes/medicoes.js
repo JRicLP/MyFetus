@@ -24,6 +24,7 @@
 const express = require('express');
 const router = express.Router();
 const client = require('../backend');
+const logger = require('../utils/logger');
 const { authenticateToken, requireRole } = require('../middlewares/auth');
 
 // Rota POST para salvar medição
@@ -62,7 +63,10 @@ router.post('/', authenticateToken, requireRole('medico', 'admin'), async (req, 
       },
     });
   } catch (error) {
-    console.error(error);
+    logger.error('Erro ao salvar medição', {
+      details: error.message,
+      payload: req.body
+    });
     res.status(500).json({ error: 'Erro ao salvar medição' });
   }
 });

@@ -36,6 +36,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const logger = require('./utils/logger');
 
 const app = express();
 
@@ -69,6 +70,11 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.use((req, res, next) => {
+  logger.request(req);
+  next();
+});
+
 //Importação das rotas
 const userRoutes = require('./routes/users');
 const pregnantRoutes = require('./routes/pregnants');
@@ -97,6 +103,5 @@ const PORT = process.env.PORT || 3000;
 
 //importante: use '0.0.0.0' para aceitar conexões externas dentro do container Docker
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Servidor rodando em http://0.0.0.0:${PORT}`);
+  logger.startup(`🚀 Servidor rodando em http://0.0.0.0:${PORT}`);
 });
-
