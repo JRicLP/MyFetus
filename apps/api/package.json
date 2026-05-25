@@ -7,7 +7,9 @@
     "start": "node server.js",
     "test:pii": "node ./tests/piiSanitizer.test.js",
     "test:logger": "node ./tests/logger.test.js",
-    "test:db": "docker compose run --rm backend node /app/tests/database.test.js"
+    "test:db": "docker compose run --rm backend node /app/tests/database.test.js",
+    "test:loinc": "docker compose run --rm backend node /app/tests/loincMapper.test.js",
+    "test:loinc:endpoint": "docker compose run --rm backend node /app/tests/internalLoinc.test.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

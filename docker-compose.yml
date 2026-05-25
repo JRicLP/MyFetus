@@ -11,6 +11,7 @@ services:
       - db_data:/var/lib/postgresql/data
       - ./apps/api/db/create_tables.sql:/docker-entrypoint-initdb.d/1_create_tables.sql:ro
       - ./apps/api/db/triggers.sql:/docker-entrypoint-initdb.d/2_triggers.sql:ro
+      - ./apps/api/db/migration.sql:/docker-entrypoint-initdb.d/3_migration.sql:ro
     ports:
       - "5434:5432"
     healthcheck:
