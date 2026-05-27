@@ -1,0 +1,21 @@
+{
+  "document_type": "cartao_vacinacao",
+  "fields": {
+    "vacina": "dT",
+    "data_aplicacao": "2026-05-28",
+    "lote": "L9097-J",
+    "proxima_dose": "2026-08-12"
+  },
+  "file_name": "cartao_vacinacao_10.pdf",
+  "method": "pdfjs",
+  "text_tokens": [
+    "MyFetus - documento sintetico",
+    "Cartao de vacinacao",
+    "Identificador: cartao_vacinacao_10",
+    "Vacina: dT",
+    "Data de aplicacao: 2026-05-28",
+    "Lote: L9097-J",
+    "Proxima dose: 2026-08-12",
+    "Dados ficticios gerados exclusivamente para testes automatizados."
+  ]
+}

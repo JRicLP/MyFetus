@@ -1,0 +1,21 @@
+{
+  "document_type": "cartao_vacinacao",
+  "fields": {
+    "vacina": "dTpa",
+    "data_aplicacao": "2026-05-27",
+    "lote": "L7635-A",
+    "proxima_dose": "2026-11-20"
+  },
+  "file_name": "cartao_vacinacao_01.pdf",
+  "method": "pdfjs",
+  "text_tokens": [
+    "MyFetus - documento sintetico",
+    "Cartao de vacinacao",
+    "Identificador: cartao_vacinacao_01",
+    "Vacina: dTpa",
+    "Data de aplicacao: 2026-05-27",
+    "Lote: L7635-A",
+    "Proxima dose: 2026-11-20",
+    "Dados ficticios gerados exclusivamente para testes automatizados."
+  ]
+}

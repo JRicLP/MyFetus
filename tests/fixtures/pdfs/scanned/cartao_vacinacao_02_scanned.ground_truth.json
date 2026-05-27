@@ -1,0 +1,21 @@
+{
+  "document_type": "cartao_vacinacao",
+  "fields": {
+    "vacina": "dTpa",
+    "data_aplicacao": "2026-05-27",
+    "lote": "L4798-B",
+    "proxima_dose": "2026-06-27"
+  },
+  "file_name": "cartao_vacinacao_02_scanned.pdf",
+  "method": "ocr",
+  "text_tokens": [
+    "MyFetus - documento sintetico",
+    "Cartao de vacinacao",
+    "Identificador: cartao_vacinacao_02",
+    "Vacina: dTpa",
+    "Data de aplicacao: 2026-05-27",
+    "Lote: L4798-B",
+    "Proxima dose: 2026-06-27",
+    "Dados ficticios gerados exclusivamente para testes automatizados."
+  ]
+}

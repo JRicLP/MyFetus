@@ -1,0 +1,23 @@
+{
+  "document_type": "resumo_pre_natal",
+  "fields": {
+    "data_consulta": "2026-03-06",
+    "peso_kg": 91,
+    "pressao": "137/55 mmHg",
+    "idade_gestacional": 31,
+    "observacoes": "solicitado acompanhamento de pressao arterial"
+  },
+  "file_name": "resumo_pre_natal_03_scanned.pdf",
+  "method": "ocr",
+  "text_tokens": [
+    "MyFetus - documento sintetico",
+    "Resumo de consulta pre-natal",
+    "Identificador: resumo_pre_natal_03",
+    "Data da consulta: 2026-03-06",
+    "Peso kg: 91",
+    "Pressao arterial: 137/55 mmHg",
+    "Idade gestacional: 31",
+    "Observacoes: solicitado acompanhamento de pressao arterial",
+    "Dados ficticios gerados exclusivamente para testes automatizados."
+  ]
+}

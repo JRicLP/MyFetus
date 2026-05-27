@@ -1,0 +1,21 @@
+{
+  "document_type": "cartao_vacinacao",
+  "fields": {
+    "vacina": "covid-19",
+    "data_aplicacao": "2026-05-28",
+    "lote": "L5772-H",
+    "proxima_dose": "2026-08-01"
+  },
+  "file_name": "cartao_vacinacao_08.pdf",
+  "method": "pdfjs",
+  "text_tokens": [
+    "MyFetus - documento sintetico",
+    "Cartao de vacinacao",
+    "Identificador: cartao_vacinacao_08",
+    "Vacina: covid-19",
+    "Data de aplicacao: 2026-05-28",
+    "Lote: L5772-H",
+    "Proxima dose: 2026-08-01",
+    "Dados ficticios gerados exclusivamente para testes automatizados."
+  ]
+}

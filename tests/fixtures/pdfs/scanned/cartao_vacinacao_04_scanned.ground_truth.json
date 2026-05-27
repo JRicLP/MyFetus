@@ -1,0 +1,21 @@
+{
+  "document_type": "cartao_vacinacao",
+  "fields": {
+    "vacina": "influenza",
+    "data_aplicacao": "2026-05-27",
+    "lote": "L8122-D",
+    "proxima_dose": "2026-07-09"
+  },
+  "file_name": "cartao_vacinacao_04_scanned.pdf",
+  "method": "ocr",
+  "text_tokens": [
+    "MyFetus - documento sintetico",
+    "Cartao de vacinacao",
+    "Identificador: cartao_vacinacao_04",
+    "Vacina: influenza",
+    "Data de aplicacao: 2026-05-27",
+    "Lote: L8122-D",
+    "Proxima dose: 2026-07-09",
+    "Dados ficticios gerados exclusivamente para testes automatizados."
+  ]
+}
