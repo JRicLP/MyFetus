@@ -9,6 +9,7 @@
  */
 
 const client = require('../backend');
+const logger = require('../utils/logger');
 
 /**
  * Campos permitidos para atualização na tabela pregnants.
@@ -350,7 +351,10 @@ const updatePregnant = async (req, res) => {
 
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Erro ao atualizar gestante:', err.message);
+    logger.error('Erro ao atualizar gestante', {
+      details: err.message,
+      pregnantId: id
+    });
     res.status(500).json({ error: err.message });
   }
 };

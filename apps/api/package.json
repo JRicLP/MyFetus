@@ -5,7 +5,10 @@
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js",
-    "extract:documents": "node workers/extractDocuments.js"
+    "extract:documents": "node workers/extractDocuments.js",
+    "test:pii": "node ./tests/piiSanitizer.test.js",
+    "test:logger": "node ./tests/logger.test.js",
+    "test:db": "docker compose run --rm backend node /app/tests/database.test.js"
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.80",

@@ -27,6 +27,7 @@
  */
 require('dotenv').config();
 const { Pool } = require('pg');
+const logger = require('./utils/logger');
 
 // Conexão ao banco de dados (usando Pool para gerenciar conexões)
 const client = new Pool({
@@ -39,7 +40,9 @@ const client = new Pool({
 
 // Teste inicial de conexão
 client.connect()
-  .then(() => console.log('✅ Conectado ao PostgreSQL com sucesso!'))
-  .catch((err) => console.error('❌ Erro ao conectar ao banco de dados:', err.message));
+  .then(() => logger.info('✅ Conectado ao PostgreSQL com sucesso!'))
+  .catch((err) => logger.error('❌ Erro ao conectar ao banco de dados', {
+    details: err.message
+  }));
 
 module.exports = client;
