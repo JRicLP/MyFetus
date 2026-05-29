@@ -41,6 +41,10 @@ services:
       JWT_SECRET: uma_chave_grande_de_teste
       JWT_EXPIRES_IN: 8h
       CORS_ORIGIN: http://localhost:8081,http://localhost:19006,http://localhost:3000
+      OCR_LANGUAGES: por+eng
+      PDF_TEXT_MIN_LENGTH_FOR_OCR: 50
+      DOCUMENT_EXTRACTION_BATCH_SIZE: 5
+      DOCUMENT_EXTRACTION_INTERVAL_MS: 30000
 
     ports:
       - "3000:3000"

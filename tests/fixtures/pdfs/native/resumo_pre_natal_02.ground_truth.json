@@ -1,0 +1,23 @@
+{
+  "document_type": "resumo_pre_natal",
+  "fields": {
+    "data_consulta": "2026-03-06",
+    "peso_kg": 84.2,
+    "pressao": "166/52 mmHg",
+    "idade_gestacional": 5,
+    "observacoes": "gestante sem queixas no momento"
+  },
+  "file_name": "resumo_pre_natal_02.pdf",
+  "method": "pdfjs",
+  "text_tokens": [
+    "MyFetus - documento sintetico",
+    "Resumo de consulta pre-natal",
+    "Identificador: resumo_pre_natal_02",
+    "Data da consulta: 2026-03-06",
+    "Peso kg: 84.2",
+    "Pressao arterial: 166/52 mmHg",
+    "Idade gestacional: 5",
+    "Observacoes: gestante sem queixas no momento",
+    "Dados ficticios gerados exclusivamente para testes automatizados."
+  ]
+}

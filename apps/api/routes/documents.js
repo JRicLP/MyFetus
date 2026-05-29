@@ -10,6 +10,8 @@
  *   - GET    /         : Lista documentos filtrando por `pregnant_id` (query param).
  *   - GET    /:id      : Consulta um documento específico pelo ID.
  *   - GET    /:id/download : Baixa um documento específico pelo ID.
+ *   - GET    /:id/text : Consulta o texto extraído do documento.
+ *   - POST   /:id/extract : Reprocessa a extração de texto.
  *   - DELETE /:id      : Remove um documento pelo ID.
  *   - PUT    /:id      : Atualiza informações de um documento pelo ID.
  *
@@ -28,6 +30,8 @@ const {
   downloadDocument,
   deleteDocument,
   updateDocument,
+  getDocumentExtractedText,
+  retryDocumentTextExtraction,
 } = require('../controllers/documentsController');
 const { authenticateToken, requireRole } = require('../middlewares/auth');
 
@@ -45,6 +49,8 @@ router.post(
 );
 router.get('/', requireDocumentAccess, getDocuments); // lista por pregnant_id (query param)
 router.get('/:id/download', requireDocumentAccess, downloadDocument);
+router.get('/:id/text', requireDocumentAccess, getDocumentExtractedText);
+router.post('/:id/extract', requireDocumentAccess, retryDocumentTextExtraction);
 router.get('/:id', requireDocumentAccess, getDocumentById); // busca o doc por id
 router.delete('/:id', requireDocumentAccess, deleteDocument);
 router.put('/:id', requireDocumentAccess, updateDocument);

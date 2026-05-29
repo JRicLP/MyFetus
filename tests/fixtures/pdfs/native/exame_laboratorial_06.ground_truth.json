@@ -1,0 +1,23 @@
+{
+  "document_type": "exame_laboratorial",
+  "fields": {
+    "data_exame": "2026-10-09",
+    "tipo_exame": "glicemia",
+    "valor": 128.8,
+    "unidade": "mg/dL",
+    "referencia": "70 a 99 mg/dL em jejum"
+  },
+  "file_name": "exame_laboratorial_06.pdf",
+  "method": "pdfjs",
+  "text_tokens": [
+    "MyFetus - documento sintetico",
+    "Resultado de exame laboratorial",
+    "Identificador: exame_laboratorial_06",
+    "Data do exame: 2026-10-09",
+    "Tipo do exame: glicemia",
+    "Valor: 128.8",
+    "Unidade: mg/dL",
+    "Referencia: 70 a 99 mg/dL em jejum",
+    "Dados ficticios gerados exclusivamente para testes automatizados."
+  ]
+}

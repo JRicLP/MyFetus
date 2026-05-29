@@ -83,6 +83,7 @@ const pregnancyEventsRoutes = require('./routes/pregnancyEvents');
 const documentsRoutes = require('./routes/documents');
 const fetalMeasurementsRoutes = require('./routes/medicoes');
 const syncRoutes = require('./routes/sync');
+const { startDocumentTextExtractionWorker } = require('./workers/pdfWorker');
 
 //Prefixo /api para padronização das rotas
 app.use('/api/users', userRoutes);
@@ -97,6 +98,8 @@ app.use('/api/sync', syncRoutes);
 app.get('/ping', (req, res) => {
   res.json({ message: 'Backend funcionando corretamente.' });
 });
+
+startDocumentTextExtractionWorker();
 
 //Inicializa o servidor
 const PORT = process.env.PORT || 3000;
