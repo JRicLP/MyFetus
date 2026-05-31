@@ -8,6 +8,14 @@
     "jwt:secret:test": "NODE_ENV=test node ./scripts/generate-jwt-secret.js",
     "jwt:rotate:test": "node ./scripts/rotate-jwt-secret-and-generate-token.js",
     "extract:documents": "node workers/extractDocuments.js",
+
+    "rag:ingest": "node workers/ingestRagDocuments.js",
+    "rag:test-search": "node tests/ragSearch.test.js",
+
+    "test:chunking": "node tests/chunkingService.test.js",
+    "test:embedding": "node tests/embeddingService.test.js",
+    "test:pinecone": "node tests/vectorStoreService.test.js",
+
     "test:pii": "node ./tests/piiSanitizer.test.js",
     "test:logger": "node ./tests/logger.test.js",
     "test:db": "docker compose run --rm backend node /app/tests/database.test.js",
@@ -15,7 +23,9 @@
     "test:loinc:endpoint": "docker compose run --rm backend node /app/tests/internalLoinc.test.js"
   },
   "dependencies": {
+    "@huggingface/transformers": "^4.2.0",
     "@napi-rs/canvas": "^0.1.80",
+    "@pinecone-database/pinecone": "^6.1.4",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
@@ -24,7 +34,7 @@
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.0.0",
     "pdfjs-dist": "^4.10.38",
-    "tesseract.js": "^6.0.1",
-    "pg": "^8.16.0"
+    "pg": "^8.16.0",
+    "tesseract.js": "^6.0.1"
   }
 }
