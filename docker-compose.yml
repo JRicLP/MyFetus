@@ -11,6 +11,7 @@ services:
       - db_data:/var/lib/postgresql/data
       - ./apps/api/db/create_tables.sql:/docker-entrypoint-initdb.d/1_create_tables.sql:ro
       - ./apps/api/db/triggers.sql:/docker-entrypoint-initdb.d/2_triggers.sql:ro
+      - ./apps/api/db/migration.sql:/docker-entrypoint-initdb.d/3_migration.sql:ro
     ports:
       - "5434:5432"
     healthcheck:
@@ -38,7 +39,7 @@ services:
       PORT: 3000
 
     # teste JWT e CORS
-      JWT_SECRET: uma_chave_grande_de_teste
+      JWT_SECRET: KpMMxgN2MYxRQMoXjG8Rk2YcR4XwBorIdUcXUJPWk608OQ-maT0KCAgfw-s0NGKy
       JWT_EXPIRES_IN: 8h
       CORS_ORIGIN: http://localhost:8081,http://localhost:19006,http://localhost:3000
       OCR_LANGUAGES: por+eng

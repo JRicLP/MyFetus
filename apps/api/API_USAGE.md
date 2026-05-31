@@ -28,6 +28,31 @@ Base URL padrão: `http://localhost:3000/api`
 
 Observação: o servidor expõe `/api` como prefixo de todas as rotas.
 
+### JWT de teste
+
+Para gerar um novo `JWT_SECRET` e imprimir um token de teste de `admin`, use o script abaixo dentro de `apps/api`:
+
+```bash
+node ./scripts/rotate-jwt-secret-and-generate-token.js --dry-run
+```
+
+Para aplicar a troca no `docker-compose.yml` e reiniciar o backend, execute sem `--dry-run` e com `--restart`:
+
+```bash
+node ./scripts/rotate-jwt-secret-and-generate-token.js --restart
+```
+
+O script imprime:
+- o novo `JWT_SECRET`
+- o JWT de teste já assinado
+- um `curl` pronto para validar o endpoint interno `POST /api/internal/loinc/term`
+
+Se preferir usar a JWT gerada manualmente em outro request, copie o token impresso e envie no header:
+
+```bash
+Authorization: Bearer <token-gerado>
+```
+
 ---
 
 **Restrições e observações**

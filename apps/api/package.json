@@ -5,10 +5,14 @@
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js",
+    "jwt:secret:test": "NODE_ENV=test node ./scripts/generate-jwt-secret.js",
+    "jwt:rotate:test": "node ./scripts/rotate-jwt-secret-and-generate-token.js",
     "extract:documents": "node workers/extractDocuments.js",
     "test:pii": "node ./tests/piiSanitizer.test.js",
     "test:logger": "node ./tests/logger.test.js",
-    "test:db": "docker compose run --rm backend node /app/tests/database.test.js"
+    "test:db": "docker compose run --rm backend node /app/tests/database.test.js",
+    "test:loinc": "docker compose run --rm backend node /app/tests/loincMapper.test.js",
+    "test:loinc:endpoint": "docker compose run --rm backend node /app/tests/internalLoinc.test.js"
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.80",
