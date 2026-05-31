@@ -12,14 +12,22 @@
 
 let LOINC_CATALOG = []; // Cache em memória
 let catalogLoaded = false;
+let FALLBACK_CATALOG = null;
 
 const getFallbackCatalog = () => {
+  if (FALLBACK_CATALOG !== null) {
+    return FALLBACK_CATALOG;
+  }
+
   try {
     const { INITIAL_LOINC_CATALOG } = require('./loincInitializer');
-    return Array.isArray(INITIAL_LOINC_CATALOG) ? INITIAL_LOINC_CATALOG : [];
-  } catch (_) {
-    return [];
+    FALLBACK_CATALOG = Array.isArray(INITIAL_LOINC_CATALOG) ? INITIAL_LOINC_CATALOG : [];
+  } catch (error) {
+    console.error('Erro ao carregar catálogo LOINC de fallback:', error.message);
+    FALLBACK_CATALOG = [];
   }
+
+  return FALLBACK_CATALOG;
 };
 
 const normalizeText = (value) => {
