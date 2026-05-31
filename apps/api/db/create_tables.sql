@@ -237,6 +237,13 @@ CREATE TABLE public.pregnant_documents (
     document_name character varying(255) NOT NULL,
     document_type character varying(100),
     file_path text NOT NULL,
+    extracted_text text,
+    extraction_status character varying(20) DEFAULT 'pending'::character varying,
+    extraction_method character varying(20),
+    extraction_confidence numeric(5,2),
+    extraction_error text,
+    extraction_attempts integer DEFAULT 0,
+    extracted_at timestamp without time zone,
     uploaded_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
@@ -513,6 +520,14 @@ ALTER TABLE ONLY public.pregnancy_events
 
 ALTER TABLE ONLY public.pregnant_documents
     ADD CONSTRAINT pregnant_documents_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: pregnant_documents pregnant_documents_extraction_status_check; Type: CONSTRAINT; Schema: public; Owner: myuser
+--
+
+ALTER TABLE ONLY public.pregnant_documents
+    ADD CONSTRAINT pregnant_documents_extraction_status_check CHECK (((extraction_status)::text = ANY ((ARRAY['pending'::character varying, 'processing'::character varying, 'done'::character varying, 'failed'::character varying])::text[])));
 
 
 --

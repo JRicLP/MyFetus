@@ -173,8 +173,21 @@ curl -X POST http://localhost:3000/api/documents \
 - Listar por `pregnant_id`: GET `/api/documents?pregnant_id=<id>`
 - Consultar por id: GET `/api/documents/:id`
 - Baixar arquivo: GET `/api/documents/:id/download`
+- Consultar texto extraído: GET `/api/documents/:id/text`
+  - Retorna `200 OK` com `extraction_status`, `extracted_text`, `extraction_method` e metadados quando `extraction_status = done`.
+  - Retorna `202 Accepted` com o status atual enquanto o processamento ainda não terminou.
+- Reprocessar extração: POST `/api/documents/:id/extract`
+  - Enfileira o documento novamente para extração assíncrona.
 - Atualizar metadados: PUT `/api/documents/:id` (JSON com `document_name` e/ou `document_type`)
 - Deletar: DELETE `/api/documents/:id`
+
+Para habilitar as colunas de extração em um banco existente, aplique:
+
+```bash
+psql -U myuser -d mydatabase -f apps/api/db/migration_extracted_text.sql
+```
+
+O backend também inicia um worker periódico a cada 30 segundos, processando até 5 documentos `pending` por ciclo. No upload, a API dispara uma tentativa assíncrona imediata sem bloquear a resposta HTTP.
 
 ---
 

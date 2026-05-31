@@ -66,6 +66,11 @@ Principais Campos:
   * document_name: Nome do arquivo.
   * document_type: Tipo do documento.
   * file_path: Caminho do arquivo armazenado.
+  * extracted_text: Texto extraído do documento por PDF.js ou OCR.
+  * extraction_status: Estado do processamento (`pending`, `processing`, `done` ou `failed`).
+  * extraction_method: Método usado na extração (`pdfjs`, `ocr` ou `plain-text`).
+  * extraction_confidence: Confiança média retornada pelo OCR, quando aplicável.
+  * extraction_error: Motivo da falha, quando o processamento não concluir.
   * uploaded_at: Data/hora de upload.
   * updated_at: Atualizado automaticamente via trigger (se aplicável).
 

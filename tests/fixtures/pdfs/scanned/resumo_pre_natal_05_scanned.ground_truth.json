@@ -1,0 +1,23 @@
+{
+  "document_type": "resumo_pre_natal",
+  "fields": {
+    "data_consulta": "2026-03-06",
+    "peso_kg": 104.6,
+    "pressao": "171/59 mmHg",
+    "idade_gestacional": 5,
+    "observacoes": "orientada hidratacao e retorno em quatro semanas"
+  },
+  "file_name": "resumo_pre_natal_05_scanned.pdf",
+  "method": "ocr",
+  "text_tokens": [
+    "MyFetus - documento sintetico",
+    "Resumo de consulta pre-natal",
+    "Identificador: resumo_pre_natal_05",
+    "Data da consulta: 2026-03-06",
+    "Peso kg: 104.6",
+    "Pressao arterial: 171/59 mmHg",
+    "Idade gestacional: 5",
+    "Observacoes: orientada hidratacao e retorno em quatro semanas",
+    "Dados ficticios gerados exclusivamente para testes automatizados."
+  ]
+}

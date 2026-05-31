@@ -1,0 +1,21 @@
+{
+  "document_type": "receita_medica",
+  "fields": {
+    "medicamento": "vitamina D",
+    "dose": "1 comprimido",
+    "posologia": "tomar antes de dormir",
+    "crm_medico": "CRM-PE 25977"
+  },
+  "file_name": "receita_medica_06.pdf",
+  "method": "pdfjs",
+  "text_tokens": [
+    "MyFetus - documento sintetico",
+    "Receita medica",
+    "Identificador: receita_medica_06",
+    "Medicamento: vitamina D",
+    "Dose: 1 comprimido",
+    "Posologia: tomar antes de dormir",
+    "CRM do medico: CRM-PE 25977",
+    "Dados ficticios gerados exclusivamente para testes automatizados."
+  ]
+}
