@@ -13,6 +13,15 @@
 let LOINC_CATALOG = []; // Cache em memória
 let catalogLoaded = false;
 
+const getFallbackCatalog = () => {
+  try {
+    const { INITIAL_LOINC_CATALOG } = require('./loincInitializer');
+    return Array.isArray(INITIAL_LOINC_CATALOG) ? INITIAL_LOINC_CATALOG : [];
+  } catch (_) {
+    return [];
+  }
+};
+
 const normalizeText = (value) => {
   if (value === null || value === undefined) return '';
 
@@ -70,6 +79,10 @@ const buildMatch = (entry, alias, score, input) => ({
 });
 
 const mapClinicalTerm = (term) => {
+  if (LOINC_CATALOG.length === 0) {
+    LOINC_CATALOG = getFallbackCatalog();
+  }
+
   const input = normalizeText(term);
 
   if (!input) {
