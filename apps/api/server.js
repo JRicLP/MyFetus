@@ -36,6 +36,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const db = require('./backend');
 const logger = require('./utils/logger');
 
 const app = express();
@@ -101,7 +102,46 @@ app.get('/ping', (req, res) => {
   res.json({ message: 'Backend funcionando corretamente.' });
 });
 
-startDocumentTextExtractionWorker();
+// Garante compatibilidade com o dashboard do médico: todo usuário com role='user'
+// precisa ter um registro correspondente na tabela `pregnants`.
+async function backfillPregnantsForUsers() {
+  try {
+    const result = await db.query(`
+      INSERT INTO pregnants (user_id)
+      SELECT u.id
+      FROM users u
+      WHERE u.role IN ('gestante', 'user')
+        AND NOT EXISTS (
+          SELECT 1 FROM pregnants p WHERE p.user_id = u.id
+        );
+    `);
+    if (result?.rowCount) {
+      console.log(`🧩 Backfill: ${result.rowCount} paciente(s) adicionada(s) em pregnants.`);
+    }
+  } catch (err) {
+    // Não derruba o servidor se o banco ainda não estiver pronto.
+    console.warn('⚠️ Backfill de pregnants falhou:', err?.message || err);
+  }
+}
+
+backfillPregnantsForUsers();
+
+// Garante colunas do fluxo de relatórios de exames (sem precisar recriar o volume do banco)
+async function ensurePregnantDocumentsReportSchema() {
+  try {
+    await db.query(`
+      ALTER TABLE pregnant_documents
+        ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'pending',
+        ADD COLUMN IF NOT EXISTS report_comment TEXT,
+        ADD COLUMN IF NOT EXISTS reviewed_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMP;
+    `);
+  } catch (err) {
+    console.warn('⚠️ ensurePregnantDocumentsReportSchema falhou:', err?.message || err);
+  }
+}
+
+ensurePregnantDocumentsReportSchema();
 
 //Inicializa o servidor
 const PORT = process.env.PORT || 3000;

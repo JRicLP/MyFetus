@@ -29,22 +29,41 @@ function sanitizeUser(user) {
  *  - [JSON]: Usuário criado com sucesso.
  */
 const createUser = async (req, res) => {
-  const { name, email, password, birthdate } = req.body;
-  const is_active = true;
-  const role = 'gestante';
+  const { name, email, password, birthdate, is_active = true } = req.body;
+  const role = req.body.role || 'gestante';
+  let dbClient;
   try {
+    dbClient = await client.connect();
+    await dbClient.query('BEGIN');
+
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
-    const result = await client.query(
-        `
-        INSERT INTO users (name, email, password, birthdate, is_active, role)
-        VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING id, name, email, birthdate, is_active, role, created_at, updated_at
-        `,
+    const result = await dbClient.query(
+      `
+      INSERT INTO users (name, email, password, birthdate, is_active, role)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING id, name, email, birthdate, is_active, role, created_at, updated_at
+      `,
       [name, email, hashedPassword, birthdate, is_active, role]
     );
-    res.status(201).json(result.rows[0]);
+
+    const createdUser = result.rows[0];
+
+    // Regra do app: usuários (role='user') representam pacientes e precisam existir em `pregnants`.
+    if (role === 'gestante' || role === 'user') {
+      await dbClient.query('INSERT INTO pregnants (user_id) VALUES ($1)', [createdUser.id]);
+    }
+
+    await dbClient.query('COMMIT');
+    res.status(201).json(createdUser);
   } catch (err) {
+    try {
+      if (dbClient) await dbClient.query('ROLLBACK');
+    } catch (_) {
+      // ignore rollback errors
+    }
     res.status(500).json({ error: err.message });
+  } finally {
+    if (dbClient) dbClient.release();
   }
 };
 
@@ -166,35 +185,42 @@ const loginUser = async (req, res) => {
   const jwt = require('jsonwebtoken');
 
   try {
-    const result = await client.query('SELECT * FROM users WHERE email = $1', [email]);
+    const result = await client.query(
+      `SELECT u.*, p.id AS pregnant_id
+         FROM users u
+         LEFT JOIN pregnants p ON p.user_id = u.id
+        WHERE u.email = $1`,
+      [email]
+    );
 
     const user = result.rows[0];
 
-    if (result.rows.length === 0 || !(await bcrypt.compare(password, result.rows[0].password))) {
+    if (result.rows.length === 0 || !(await bcrypt.compare(password, user.password))) {
       return res.status(401).json({ error: 'Login ou senha inválidos' });
     }
 
-  const token = jwt.sign(
-    {
-      id: user.id,
-      role: user.role
-   },
-    process.env.JWT_SECRET,
-    {
-      expiresIn: process.env.JWT_EXPIRES_IN || '8h'
-   }
-  );
+    const token = jwt.sign(
+      {
+        id: user.id,
+        role: user.role,
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: process.env.JWT_EXPIRES_IN || '8h',
+      }
+    );
 
-  res.status(200).json({
-    message: 'Login bem-sucedido',
-    token,
-    user: {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role
-    }
-  });
+    res.status(200).json({
+      message: 'Login bem-sucedido',
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        pregnant_id: user.pregnant_id || null,
+      },
+    });
   } catch (err) {
     res.status(500).json({ error: 'Erro no servidor' });
   }

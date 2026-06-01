@@ -58,6 +58,16 @@ export default function TabsLayout() {
           ),
         }}
       />
+
+      <Tabs.Screen
+        name="exames"
+        options={{
+          title: 'Exames',
+          tabBarIcon: ({ color }) => (
+            <FontAwesome name="file-text" size={24} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }

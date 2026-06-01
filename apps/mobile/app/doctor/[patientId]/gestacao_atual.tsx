@@ -11,6 +11,7 @@ import {
   Alert, 
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { apiUrl } from '../../../utils/api';
 
 // --- COMPONENTE REUTILIZÁVEL 'ToggleButton' ---
 type ToggleButtonProps = {
@@ -89,7 +90,7 @@ export default function GestacaoAtualScreen() {
     const fetchPatientData = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`http://localhost:3000/api/pregnants/${patientId}`);
+        const response = await fetch(apiUrl(`/api/pregnants/${patientId}`));
         if (!response.ok) { throw new Error('Erro ao buscar dados'); }
         const data = await response.json();
         
@@ -138,7 +139,7 @@ export default function GestacaoAtualScreen() {
     setIsSaving(true);
     
     try {
-      const response = await fetch(`http://localhost:3000/api/pregnants/${patientId}`, {
+      const response = await fetch(apiUrl(`/api/pregnants/${patientId}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -183,7 +183,13 @@ CREATE TABLE IF NOT EXISTS pregnant_documents (
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP,
-    version INTEGER DEFAULT 1
+    version INTEGER DEFAULT 1,
+
+    -- fluxo de relatório do médico
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    report_comment TEXT,
+    reviewed_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    reviewed_at TIMESTAMP
 );
 
 -- =====================================================
@@ -196,4 +202,3 @@ CREATE TABLE IF NOT EXISTS medidas_fetais (
     dgn FLOAT DEFAULT 0.0,
     idade_gestacional_semanas INTEGER NOT NULL
 );
-
