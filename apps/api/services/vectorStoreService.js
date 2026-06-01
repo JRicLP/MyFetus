@@ -108,9 +108,10 @@ async function queryVectors(vector, options = {}) {
   validateVector(vector);
 
   const {
-    namespace = PINECONE_NAMESPACE,
+    namespace = 'guidelines',
     topK = 5,
     includeMetadata = true,
+    filter
   } = options;
 
   const namespaceIndex = getNamespace(namespace);
@@ -119,6 +120,7 @@ async function queryVectors(vector, options = {}) {
     vector,
     topK,
     includeMetadata,
+    filter: filter && Object.keys(filter).length > 0 ? filter : undefined
   });
 }
 

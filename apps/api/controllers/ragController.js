@@ -5,8 +5,8 @@
  * Gerencia requisições de busca semântica e consulta ao knowledge base
  */
 
-const { semanticSearch, getChunkStats } = require('../utils/ragRetrieval');
-const { MOCK_CHUNKS } = require('../data/rag-mock-data');
+const vectorStoreService = require('../services/vectorStoreService');
+const embeddingService = require('../services/embeddingService');
 
 /**
  * Busca semântica no knowledge base
@@ -15,8 +15,11 @@ const { MOCK_CHUNKS } = require('../data/rag-mock-data');
 const searchKnowledgeBase = async (req, res) => {
   try {
     const body = req.body || {};
-    const { query, especialidade, fonte, tema } = body;
+    const query = body.query;
     const topK = body.topK ?? 5;
+    
+    // CAPTURA DINÂMICA DOS FILTROS (Alinhado com o contrato e o script Bash)
+    const filtros = body.filtros || {};
 
     // Validação básica
     if (!query || typeof query !== 'string') {
@@ -37,30 +40,40 @@ const searchKnowledgeBase = async (req, res) => {
       });
     }
 
-    // Monta filtros opcionais
-    const filtros = {};
-    if (especialidade) filtros.especialidade = especialidade;
-    if (fonte) filtros.fonte = fonte;
-    if (tema) filtros.tema = tema;
+    const startTime = Date.now();
 
-    // Executa busca semântica
-    const resultado = semanticSearch(query, MOCK_CHUNKS, topK, filtros);
+    // 1. Aplica a regra de negócio do prefixo exigida pelo contrato
+    const prefixedQuery = `query: ${query}`; 
 
-    if (resultado.erro) {
-      return res.status(400).json({
-        error: resultado.erro
-      });
-    }
+    // 2. Gera o vetor real com a string prefixada
+    const queryEmbedding = await embeddingService.generateEmbedding(prefixedQuery);
 
-    // Retorna resposta estruturada
+    // 3. Consulta o Pinecone no namespace correto 
+    const pineconeResult = await vectorStoreService.queryVectors(queryEmbedding, { 
+        namespace: 'guidelines', 
+        topK, 
+        filter: Object.keys(filtros).length > 0 ? filtros : undefined
+    });
+
+    // 4. Mapeia a resposta usando estritamente o contrato de metadados
+    const resultados = pineconeResult.matches.map(match => ({
+        trecho: match.metadata.text, 
+        fonte: match.metadata.source, 
+        pagina: match.metadata.page, 
+        secao: match.metadata.section,
+        relevancia: Number(match.score.toFixed(4)), 
+        documento_id: match.metadata.documentId
+    }));
+
     return res.status(200).json({
-      source: 'rag-v1-mock',
-      query: resultado.query,
-      resultados: resultado.resultados,
-      total: resultado.total,
-      tempo_ms: resultado.tempo_ms
+        source: 'rag-v2-pinecone',
+        query: query,
+        resultados: resultados,
+        total: resultados.length,
+        tempo_ms: Date.now() - startTime
     });
   } catch (error) {
+    // ... resto do código (catch)
     console.error('Erro ao buscar knowledge base:', error.message);
     return res.status(500).json({
       error: 'Falha ao buscar no knowledge base',
@@ -75,10 +88,10 @@ const searchKnowledgeBase = async (req, res) => {
  */
 const getRAGStats = async (req, res) => {
   try {
-    const stats = getChunkStats(MOCK_CHUNKS);
+    const stats = await vectorStoreService.describeIndexStats();
 
     return res.status(200).json({
-      source: 'rag-v1-mock',
+      source: 'rag-v2-pinecone',
       stats,
       ambiente: process.env.NODE_ENV || 'test'
     });

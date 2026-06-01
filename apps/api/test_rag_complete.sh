@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # test_rag_complete.sh
-# Script completo de testes RAG com geração de JWT
+# Script completo de testes RAG com geração de JWT (Atualizado para Pinecone - Sprint 4)
 # Usa tokens teste (NODE_ENV=test deve estar ativo)
 
 set -euo pipefail
@@ -10,7 +10,7 @@ BASE_URL="${1:-http://localhost:3000}"
 ADMIN_USER="admin@test.com"
 ADMIN_PASS="admin123secure"
 
-echo "🚀 Iniciando suite de testes RAG"
+echo "🚀 Iniciando suite de testes RAG (Pinecone Integration)"
 echo "Base URL: $BASE_URL"
 echo "---"
 
@@ -45,23 +45,23 @@ curl -fsS -X POST "$BASE_URL/api/internal/rag/search" \
   -H "Authorization: Bearer $JWT_TOKEN" \
   -d '{"query": "Como detectar pré-eclâmpsia?", "topK": 3}' | jq -e '.resultados[0:2]'
 
-# Teste C: Filtro de especialidade
+# Teste C: Filtro de Tipo de Documento
 echo ""
-echo "Teste C: Busca com filtro - Especialidade: Obstetrícia"
+echo "Teste C: Busca com filtro - Tipo de Documento: Guideline"
 curl -fsS -X POST "$BASE_URL/api/internal/rag/search" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $JWT_TOKEN" \
-  -d '{"query": "Crescimento fetal", "especialidade": "Obstetrícia", "topK": 2}' \
-  | jq -e '.resultados[].especialidade' | head -2
+  -d '{"query": "Preeclampsia", "filtros": {"documentType": "guideline"}, "topK": 2}' \
+  | jq -e '.resultados[].fonte' | head -2
 
-# Teste D: Filtro de fonte
+# Teste D: Filtro de ID do Documento
 echo ""
-echo "Teste D: Busca com filtro - Fonte: FEBRASGO"
+echo "Teste D: Busca com filtro - Documento ID: ACOG 222"
 curl -fsS -X POST "$BASE_URL/api/internal/rag/search" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $JWT_TOKEN" \
-  -d '{"query": "Hemoglobina", "fonte": "FEBRASGO"}' \
-  | jq -e '.resultados[0].fonte'
+  -d '{"query": "Hypertension", "filtros": {"documentId": "acog-gestational-hypertension-preeclampsia-2020"}}' \
+  | jq -e '.resultados[0].documento_id'
 
 # Teste E: Múltiplos filtros
 echo ""
@@ -70,17 +70,19 @@ curl -fsS -X POST "$BASE_URL/api/internal/rag/search" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $JWT_TOKEN" \
   -d '{
-    "query": "Ultrassom",
-    "especialidade": "Radiologia",
-    "fonte": "FEBRASGO",
+    "query": "Critérios diagnósticos",
+    "filtros": {
+      "documentType": "guideline",
+      "documentId": "acog-gestational-hypertension-preeclampsia-2020"
+    },
     "topK": 1
-  }' | jq -e '.resultados[0] | {trecho: .trecho[0:50], relevancia}'
+  }' | jq -e '.resultados[0] | {trecho: .trecho[0:50], relevancia, fonte}'
 
-# Teste F: Estatísticas
+# Teste F: Estatísticas (Pinecone)
 echo ""
-echo "Teste F: Estatísticas do RAG"
+echo "Teste F: Estatísticas do RAG (Pinecone)"
 curl -fsS -X GET "$BASE_URL/api/internal/rag/stats" \
-  -H "Authorization: Bearer $JWT_TOKEN" | jq '.stats | {total_chunks, fontes, especialidades}'
+  -H "Authorization: Bearer $JWT_TOKEN" | jq '.stats | {totalRecordCount, dimension}'
 
 # Teste G: Validações (erros esperados)
 echo ""
@@ -102,6 +104,6 @@ echo "---"
 echo "✅ Suite de testes concluída!"
 echo ""
 echo "📋 Próximos passos:"
-echo "  1. Validar respostas acima"
-echo "  2. Implementar testes unitários"
-echo "  3. Preparar integração com Vector DB real (Pinecone)"
+echo "  1. Validar respostas acima (Verificar se a pontuação da similaridade reflete dados reais)"
+echo "  2. Checar integridade dos metadados no console do Pinecone"
+echo "  3. Integrar retorno estruturado na interface do Chat Clínico Mobile"
