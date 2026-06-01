@@ -84,6 +84,7 @@ const documentsRoutes = require('./routes/documents');
 const fetalMeasurementsRoutes = require('./routes/medicoes');
 const syncRoutes = require('./routes/sync');
 const { startDocumentTextExtractionWorker } = require('./workers/pdfWorker');
+const { startVectorIndexWorker } = require('./services/vectorIndexWorker');
 
 //Prefixo /api para padronização das rotas
 app.use('/api/users', userRoutes);
@@ -100,6 +101,7 @@ app.get('/ping', (req, res) => {
 });
 
 startDocumentTextExtractionWorker();
+startVectorIndexWorker();
 
 //Inicializa o servidor
 const PORT = process.env.PORT || 3000;

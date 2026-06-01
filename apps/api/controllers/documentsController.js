@@ -8,6 +8,9 @@ const {
   enqueueDocumentTextExtraction,
   processDocumentTextExtraction,
 } = require('../services/documentExtractionWorker');
+const {
+  semanticSearchDocuments: runSemanticSearch,
+} = require('../services/semanticSearchService');
 
 const ALLOWED_DOCUMENT_UPDATE_FIELDS = ['document_name', 'document_type'];
 
@@ -79,6 +82,29 @@ async function findDocumentById(id) {
   );
 
   return result.rows[0] || null;
+}
+
+async function findPregnantIdForAuthenticatedUser(req) {
+  if (req.user?.pregnant_id) {
+    return req.user.pregnant_id;
+  }
+
+  if (req.user?.role !== 'gestante') {
+    return null;
+  }
+
+  const result = await client.query(
+    `
+    SELECT id
+    FROM pregnants
+    WHERE user_id = $1
+    ORDER BY id ASC
+    LIMIT 1
+    `,
+    [req.user.id]
+  );
+
+  return result.rows[0]?.id || null;
 }
 
 /**
@@ -377,6 +403,37 @@ const retryDocumentTextExtraction = async (req, res) => {
   }
 };
 
+const semanticSearchDocuments = async (req, res) => {
+  try {
+    const { query, top_k } = req.body;
+
+    if (!query || typeof query !== 'string' || !query.trim()) {
+      return res.status(400).json({ error: 'query é obrigatória.' });
+    }
+
+    const pregnantId = await findPregnantIdForAuthenticatedUser(req);
+
+    if (!pregnantId) {
+      return res.status(400).json({
+        error: 'pregnant_id não encontrado no token ou no cadastro da gestante autenticada.',
+      });
+    }
+
+    const results = await runSemanticSearch({
+      query,
+      pregnant_id: pregnantId,
+      top_k,
+    });
+
+    res.json(results);
+  } catch (err) {
+    const unavailable =
+      /pinecone|PINECONE|fetch|network|connect|timeout|ECONN|ENOTFOUND/i.test(err.message);
+
+    res.status(unavailable ? 503 : 500).json({ error: err.message });
+  }
+};
+
 module.exports = {
   uploadDocument,
   getDocuments,
@@ -386,4 +443,5 @@ module.exports = {
   updateDocument,
   getDocumentExtractedText,
   retryDocumentTextExtraction,
+  semanticSearchDocuments,
 };
