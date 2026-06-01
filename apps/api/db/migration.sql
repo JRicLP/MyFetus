@@ -82,3 +82,33 @@ DROP TRIGGER IF EXISTS update_doctors_updated_at ON doctors;
 CREATE TRIGGER update_doctors_updated_at
   BEFORE UPDATE ON doctors
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- MIGRATION SPRINT 3 - LOINC Mapping
+
+-- O que faz:
+--   1. Cria a tabela loinc_codes para armazenar o catálogo LOINC
+--   2. Adiciona índices para buscas por código, termo canônico e categoria
+--   3. Permite carregar dados do banco em vez de hardcodificar no código
+
+CREATE TABLE IF NOT EXISTS loinc_codes (
+  id SERIAL PRIMARY KEY,
+  loinc VARCHAR(10) UNIQUE NOT NULL,
+  canonical_term VARCHAR(255) NOT NULL,
+  aliases TEXT, -- JSON array stringificado: ["alias1", "alias2"]
+  category VARCHAR(100),
+  specimen VARCHAR(100),
+  unit VARCHAR(100),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Índices para buscas rápidas no mapper
+CREATE INDEX IF NOT EXISTS idx_loinc_code ON loinc_codes(loinc);
+CREATE INDEX IF NOT EXISTS idx_canonical_term ON loinc_codes(canonical_term);
+CREATE INDEX IF NOT EXISTS idx_category ON loinc_codes(category);
+
+-- Trigger para atualizar updated_at automaticamente
+DROP TRIGGER IF EXISTS update_loinc_codes_updated_at ON loinc_codes;
+CREATE TRIGGER update_loinc_codes_updated_at
+  BEFORE UPDATE ON loinc_codes
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

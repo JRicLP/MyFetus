@@ -1,0 +1,21 @@
+{
+  "document_type": "receita_medica",
+  "fields": {
+    "medicamento": "vitamina D",
+    "dose": "5 mg",
+    "posologia": "tomar apos o almoco",
+    "crm_medico": "CRM-PE 39303"
+  },
+  "file_name": "receita_medica_10.pdf",
+  "method": "pdfjs",
+  "text_tokens": [
+    "MyFetus - documento sintetico",
+    "Receita medica",
+    "Identificador: receita_medica_10",
+    "Medicamento: vitamina D",
+    "Dose: 5 mg",
+    "Posologia: tomar apos o almoco",
+    "CRM do medico: CRM-PE 39303",
+    "Dados ficticios gerados exclusivamente para testes automatizados."
+  ]
+}

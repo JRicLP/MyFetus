@@ -1,223 +1,278 @@
 # MyFetus
 
-**MyFetus** é um aplicativo móvel voltado ao acompanhamento gestacional, desenvolvido para conectar gestantes e médicos em uma plataforma integrada. O app permite monitorar o desenvolvimento semana a semana do bebê, registrar dados clínicos e acompanhar a saúde da gestante de forma prática e acessível.
+**MyFetus** é um sistema acadêmico de acompanhamento gestacional desenvolvido na Escola Politécnica da UPE. O projeto conecta gestantes e médicos em uma plataforma com aplicativo mobile, API REST, banco PostgreSQL e recursos de gestão clínica, acompanhamento fetal e processamento de documentos.
 
-> Projeto acadêmico desenvolvido na **Escola Politécnica da UPE (Universidade de Pernambuco)**.
-
----
+O repositório está organizado como um monorepo: a aplicação mobile fica em `apps/mobile`, a API em `apps/api`, e há scripts/testes na raiz para validar a extração de texto de documentos PDF.
 
 ## Funcionalidades
 
-### Para a Gestante
-- **Acompanhamento semanal** — visualização do desenvolvimento do bebê semana a semana (semanas 4 a 41), com imagens ilustrativas e descrição do crescimento fetal.
-- **Data Prevista do Parto (DPP)** — cálculo automático com base na data da última menstruação.
-- **Tamanho do bebê** — comparação do tamanho do feto com referências populares por semana gestacional.
-- **Checklist por trimestre** — lista de tarefas e cuidados recomendados para cada fase da gestação, com estado salvo localmente.
-- **Controle de hidratação** — rastreamento diário do consumo de água com meta de 2 litros/dia, histórico e contagem por copo (200ml), garrafa (500ml) e garrafão (1L).
-- **Cadastro e login** — autenticação segura com senhas criptografadas.
+### Gestante
 
-### Para o Médico
-- **Dashboard de pacientes** — listagem de gestantes com indicador de risco (baseado em faixa etária).
-- **Ficha clínica completa** — acesso a dados como antecedentes clínicos, antecedentes familiares, gestações anteriores, gestação atual, vacinação, histórico de exames, histórico de ultrassons e medidas fetais.
-- **Resumo do paciente** — visão consolidada com cálculo de IMC, classificação de pressão arterial, idade gestacional e dados da gestação.
-- **Gráfico de evolução** — acompanhamento gráfico de medidas fetais.
-- **Upload de documentos** — envio e gestão de documentos das pacientes.
+- Acompanhamento semana a semana da gestação, com imagens e informações do desenvolvimento fetal.
+- Cálculo de idade gestacional e data provável do parto.
+- Checklist de cuidados por fase da gestação.
+- Controle diário de hidratação.
+- Login, cadastro e navegação por área da paciente.
 
----
+### Médico
+
+- Dashboard de pacientes.
+- Prontuário da gestante com identificação, antecedentes familiares, antecedentes clínicos, histórico obstétrico, gestação atual, vacinas, exames e ultrassons.
+- Resumo clínico consolidado da paciente.
+- Registro e consulta de medidas fetais.
+- Upload e consulta de documentos da gestante.
+
+### Backend e documentos
+
+- API REST em Node.js/Express com autenticação via JWT.
+- PostgreSQL com tabelas para usuários, médicos, gestantes, gestações, eventos, documentos e medidas fetais.
+- Upload de documentos com `multer`.
+- Extração assíncrona de texto de PDFs usando PDF.js e OCR com Tesseract.js.
+- Testes e relatórios de acurácia para extração de texto em fixtures sintéticas.
 
 ## Tecnologias
 
-### Frontend (Mobile)
-| Tecnologia | Versão |
+| Área | Tecnologias |
 |---|---|
-| React Native | 0.79.5 |
-| Expo | ~53.0.8 |
-| Expo Router | ^5.0.7 |
-| TypeScript | ~5.8.3 |
-| React Navigation | ^7.x |
-| Expo Linear Gradient | ~14.1.4 |
-| AsyncStorage | 2.1.2 |
-| React Native SVG | 15.11.2 |
+| Mobile | Expo SDK 56, React Native 0.85, React 19, TypeScript, Expo Router |
+| API | Node.js, Express 5, PostgreSQL, JWT, bcrypt, multer |
+| Documentos | PDF.js, Tesseract.js, `@napi-rs/canvas` |
+| Infra | Docker, Docker Compose |
+| Testes | Jest, scripts Node.js |
 
-### Backend
-| Tecnologia | Versão |
-|---|---|
-| Node.js + Express | ^5.1.0 |
-| PostgreSQL | 15 (Alpine) |
-| `pg` (node-postgres) | ^8.16.0 |
-| bcrypt | ^6.0.0 |
-| multer | ^2.0.0 |
-| express-validator | ^7.2.1 |
-| dotenv | ^16.5.0 |
+## Estrutura
 
-### Infraestrutura
-- **Docker** + **Docker Compose** para orquestração dos serviços de banco de dados e backend.
-
----
-
-## Estrutura do Projeto
-
-```
+```text
 MyFetus/
-├── index.html               # Landing page do projeto
-├── Contato.html             # Página de contato
-├── mebers-presentation/     # Apresentações dos membros da equipe
-└── myfetus-app/
-    └── myFetus/
-        ├── app/                     # Telas do aplicativo (Expo Router)
-        │   ├── (tabs)/              # Navegação por abas (gestante)
-        │   │   ├── index.tsx        # Home — desenvolvimento semanal
-        │   │   ├── checklist.tsx    # Checklist por trimestre
-        │   │   └── water-tracking.tsx # Controle de hidratação
-        │   ├── doctor/              # Área do médico
-        │   │   ├── dashboard.tsx    # Lista de pacientes
-        │   │   └── [patientId]/     # Ficha clínica da paciente
-        │   ├── login.tsx
-        │   ├── welcome.tsx
-        │   └── Cadastro.tsx
-        ├── backend/                 # API REST (Node.js + Express)
-        │   ├── server.js
-        │   ├── backend.js           # Configuração do pool PostgreSQL
-        │   ├── controllers/         # Lógica de negócio
-        │   ├── routes/              # Endpoints da API
-        │   ├── db/                  # Scripts SQL (tabelas e triggers)
-        │   └── utils/
-        ├── assets/                  # Imagens, fontes e ícones
-        │   └── images/
-        │       └── Fetus_weeks_img/ # Imagens das semanas 4–41
-        ├── components/              # Componentes reutilizáveis
-        ├── constants/               # Temas e cores
-        ├── hooks/                   # Custom hooks
-        ├── utils/                   # Utilitários (cálculos gestacionais)
-        ├── documentations/          # Documentação do projeto
-        └── docker-compose.yml
+├── apps/
+│   ├── api/                    # Backend Node.js/Express
+│   │   ├── controllers/         # Regras dos endpoints
+│   │   ├── db/                  # SQL de schema, triggers e migrações
+│   │   ├── middlewares/         # Autenticação e middlewares
+│   │   ├── routes/              # Rotas REST
+│   │   ├── services/            # Extração de PDF e serviços auxiliares
+│   │   ├── utils/               # Logger, permissões, sanitização, helpers
+│   │   ├── workers/             # Worker de extração de documentos
+│   │   └── server.js            # Entrada da API
+│   └── mobile/                 # App Expo/React Native
+│       ├── app/                 # Rotas do Expo Router
+│       │   ├── (tabs)/          # Área principal da gestante
+│       │   └── doctor/          # Área do médico e prontuário
+│       ├── assets/              # Imagens, fontes e ícones
+│       ├── components/          # Componentes reutilizáveis
+│       ├── constants/           # Cores e constantes
+│       ├── hooks/               # Hooks React
+│       └── utils/               # Utilitários do app
+├── packages/
+│   ├── shared/                  # Pacote compartilhado em TypeScript
+│   └── sync-engine/             # Pacote reservado para sincronização
+├── scripts/                     # Geração de dataset e relatório de acurácia
+├── tests/                       # Testes e fixtures de PDFs
+├── reports/                     # Relatórios gerados
+├── docker-compose.yml           # PostgreSQL + backend
+└── package.json                 # Scripts raiz
 ```
 
----
+## Pré-requisitos
 
-## Banco de Dados
+- Node.js 18 ou superior.
+- npm.
+- Docker e Docker Compose.
+- Expo Go ou emulador Android/iOS para testar o app mobile.
 
-O banco de dados PostgreSQL possui as seguintes tabelas principais:
+## Como executar
 
-- **`users`** — usuários do sistema (gestantes e médicos) com autenticação.
-- **`pregnants`** — dados clínicos e antecedentes das gestantes (antropométricos, obstétricos, clínicos, familiares).
-- **`pregnancies`** — informações de cada gestação registrada.
-- **`pregnancy_events`** — eventos e intercorrências gestacionais.
-- **`pregnant_documents`** — documentos das gestantes.
-- **`medidas_fetais`** — tabela de referência com medidas esperadas por semana gestacional.
+### 1. Instale as dependências
 
----
-
-## Como Executar
-
-### Pré-requisitos
-- [Node.js](https://nodejs.org/) (v18+)
-- [Expo CLI](https://expo.dev/)
-- [Docker](https://www.docker.com/) e Docker Compose
-
-### 1. Clone o repositório
-
-```bash
-git clone https://github.com/seu-usuario/MyFetus.git
-cd MyFetus/myfetus-app/myFetus
-```
-
-### 2. Suba o backend com Docker
-
-```bash
-docker-compose up -d
-```
-
-Isso irá iniciar:
-- **`myfetus-db`** — PostgreSQL na porta `5433`
-- **`myfetus-backend`** — API REST na porta `3000`
-
-O banco de dados é inicializado automaticamente com o script `init.sql`.
-
-### 3. Instale as dependências do app
+Na raiz do repositório:
 
 ```bash
 npm install
-# ou
-yarn install
 ```
 
-### 4. Inicie o aplicativo
+Instale também as dependências dos apps:
 
 ```bash
-npx expo start
+cd apps/api
+npm install
+
+cd ../mobile
+npm install
 ```
 
-Escolha a plataforma:
-- `a` — Android (emulador ou dispositivo)
-- `i` — iOS (apenas macOS)
-- `w` — Web
+### 2. Suba banco e backend com Docker
 
----
+Na raiz do projeto:
 
-## 🔌 API — Endpoints
+```bash
+docker compose up -d --build
+```
 
-| Método | Rota | Descrição |
-|---|---|---|
-| `POST` | `/users` | Cadastrar usuário |
-| `POST` | `/users/login` | Login |
-| `GET` | `/users` | Listar usuários |
-| `GET` | `/users/:id` | Buscar usuário por ID |
-| `PUT` | `/users/:id` | Atualizar usuário |
-| `DELETE` | `/users/:id` | Remover usuário |
-| `POST` | `/pregnants` | Cadastrar gestante |
-| `GET` | `/pregnants` | Listar gestantes |
-| `GET` | `/pregnants/:id` | Buscar gestante por ID |
-| `PUT` | `/pregnants/:id` | Atualizar gestante |
-| `GET` | `/pregnancies` | Listar gestações |
-| `POST` | `/pregnancy-events` | Registrar evento gestacional |
-| `POST` | `/documents` | Upload de documento |
+Serviços iniciados:
 
----
+- API: `http://localhost:3000`
+- Health check simples: `http://localhost:3000/ping`
+- PostgreSQL: `localhost:5434`
+- Container do banco: `myfetus-db`
+- Container do backend: `myfetus-backend`
 
-## Variáveis de Ambiente
+O banco é inicializado pelos arquivos:
 
-Crie um arquivo `.env` na pasta `backend/` com as seguintes variáveis:
+- `apps/api/db/create_tables.sql`
+- `apps/api/db/triggers.sql`
+
+### 3. Inicie o app mobile
+
+Em outro terminal:
+
+```bash
+cd apps/mobile
+npm start
+```
+
+Atalhos úteis do Expo:
+
+- `a`: abrir no Android.
+- `i`: abrir no iOS, em macOS.
+- `w`: abrir no navegador.
+
+Se usar um dispositivo físico, ajuste as chamadas para a API para usar o IP da máquina na rede local em vez de `localhost`.
+
+## Variáveis de ambiente
+
+Com Docker, as principais variáveis já estão definidas no `docker-compose.yml`.
+
+Para rodar a API fora do Docker, crie `apps/api/.env`:
 
 ```env
 PG_USER=myuser
 PG_PASSWORD=mypassword
 PG_DATABASE=mydatabase
-PG_HOST=myfetus-db
-PG_PORT=5432
+PG_HOST=localhost
+PG_PORT=5434
 PORT=3000
+
+JWT_SECRET=uma_chave_grande_de_teste
+JWT_EXPIRES_IN=8h
+CORS_ORIGIN=http://localhost:8081,http://localhost:19006,http://localhost:3000
+
+OCR_LANGUAGES=por+eng
+PDF_TEXT_MIN_LENGTH_FOR_OCR=50
+DOCUMENT_EXTRACTION_BATCH_SIZE=5
+DOCUMENT_EXTRACTION_INTERVAL_MS=30000
 ```
 
----
+Dentro da rede Docker, o backend usa `PG_HOST=db` e `PG_PORT=5432`.
 
-## Documentação
+## Scripts úteis
 
-A pasta `documentations/` contém:
-- **Análise SWOT** do projeto
-- **Levantamento Inicial de Requisitos**
-- **Jornada do Usuário** (Gestante)
-- **Mapa de Empatia**
-- **Mapeamento de Stakeholders**
-- **Pitch** e **Relatório Técnico** (vídeos)
+Na raiz:
 
----
+```bash
+npm test
+npm run test:pdf-extractor
+npm run generate:dataset
+npm run generate:dataset:ocr
+npm run accuracy:pdf
+```
 
-## Equipe
+Na API:
 
-Desenvolvido por alunos da **Escola Politécnica da UPE**:
+```bash
+cd apps/api
+npm run dev
+npm run start
+npm run extract:documents
+npm run test:pii
+npm run test:logger
+npm run test:db
+```
 
-- **Gabriel Lins Alves do Nascimento**
-- **Lucas**
-- **Rafael Herculano**
-- **Thiago Brito**
-- **João Ricardo**
-- **Diego Nery Romeiro**
-- **Nicholas Saraiva**
-- **Elaine**
-- **Rita de Cássia Ferreira**
-- **Samuel Henrique Santos Silva**
----
+No mobile:
+
+```bash
+cd apps/mobile
+npm start
+npm run android
+npm run ios
+npm run web
+npm run lint
+```
+
+## API
+
+A URL base padrão é:
+
+```text
+http://localhost:3000/api
+```
+
+Rotas principais:
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `POST` | `/api/users` | Cria usuário |
+| `POST` | `/api/users/login` | Autentica usuário |
+| `GET` | `/api/users` | Lista usuários |
+| `GET` | `/api/pregnants` | Lista gestantes |
+| `POST` | `/api/pregnants` | Cria registro de gestante |
+| `GET` | `/api/pregnancies` | Lista gestações |
+| `POST` | `/api/pregnancies` | Cria gestação |
+| `GET` | `/api/pregnancyEvents` | Lista eventos gestacionais |
+| `POST` | `/api/pregnancyEvents` | Cria evento gestacional |
+| `POST` | `/api/documents` | Faz upload de documento |
+| `GET` | `/api/documents/:id/text` | Consulta texto extraído |
+| `POST` | `/api/documents/:id/extract` | Reprocessa extração |
+| `POST` | `/api/medicoes` | Registra medida fetal |
+| `POST` | `/api/sync` | Sincronização administrativa |
+
+Algumas rotas exigem `Authorization: Bearer <token>`. Consulte `apps/api/API_USAGE.md` para exemplos de payloads e comandos `curl`.
+
+## Banco de dados
+
+Principais tabelas:
+
+- `users`: usuários do sistema com papéis `gestante`, `medico` e `admin`.
+- `doctors`: dados profissionais de médicos.
+- `pregnants`: dados cadastrais, clínicos, obstétricos e vacinais das gestantes.
+- `pregnancies`: informações de cada gestação.
+- `pregnancy_events`: eventos e intercorrências da gestação.
+- `pregnant_documents`: documentos enviados e metadados da extração de texto.
+- `medidas_fetais`: medidas fetais por idade gestacional.
+
+Acesso rápido ao banco:
+
+```bash
+docker exec -it myfetus-db psql -U myuser -d mydatabase
+```
+
+## Testes de extração de PDF
+
+O projeto inclui fixtures nativas e escaneadas em `tests/fixtures/pdfs`.
+
+Fluxo recomendado:
+
+```bash
+npm run generate:dataset
+npm run test:pdf-extractor
+npm run accuracy:pdf
+```
+
+Para gerar fixtures escaneadas com OCR:
+
+```bash
+npm run generate:dataset:ocr
+```
+
+Os relatórios de acurácia são gravados em `reports/`.
+
+## Documentação complementar
+
+- `apps/api/API_USAGE.md`: exemplos de uso da API.
+- `apps/api/db/README-modelagem.md`: descrição da modelagem do banco.
+- `apps/api/PostgresQL.md`: notas de PostgreSQL.
+- `apps/mobile/documentations/`: documentos acadêmicos, mapas, jornada do usuário e materiais de requisitos.
 
 ## Licença
 
-Este projeto é de caráter acadêmico. Consulte a equipe para informações sobre uso e distribuição.
+Projeto acadêmico. Consulte a equipe responsável antes de usar, distribuir ou adaptar fora do contexto original.

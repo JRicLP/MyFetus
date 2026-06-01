@@ -8,7 +8,6 @@ export default function DoctorLayout() {
         headerStyle: { backgroundColor: '#E6E0F8' }, 
         // Cor do título e da seta de voltar
         headerTintColor: '#333', 
-        headerBackTitleVisible: false, 
       }}
     >
       {/* 2. Opção ESPECIAL para o Dashboard */}

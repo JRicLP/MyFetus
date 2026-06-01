@@ -1,0 +1,144 @@
+{
+  "version": 1,
+  "locale": "pt-BR",
+  "description": "Synthetic obstetric document schema for MyFetus PDF extraction tests.",
+  "documents_per_type": 10,
+  "scanned_documents_per_type": 5,
+  "output": {
+    "native": "tests/fixtures/pdfs/native",
+    "scanned": "tests/fixtures/pdfs/scanned"
+  },
+  "document_types": {
+    "laudo_ultrassonografia": {
+      "label": "Laudo de ultrassonografia obstetrica",
+      "fields": {
+        "data_exame": {
+          "type": "date",
+          "min": "2026-01-01",
+          "max": "2026-12-31"
+        },
+        "semana_gestacional": {
+          "type": "integer",
+          "min": 4,
+          "max": 41
+        },
+        "ccn_mm": {
+          "type": "number",
+          "min": 2,
+          "max": 85
+        },
+        "bpd_mm": {
+          "type": "number",
+          "min": 14,
+          "max": 98
+        },
+        "ca_mm": {
+          "type": "number",
+          "min": 70,
+          "max": 380
+        },
+        "cfl_mm": {
+          "type": "number",
+          "min": 8,
+          "max": 78
+        }
+      }
+    },
+    "exame_laboratorial": {
+      "label": "Resultado de exame laboratorial",
+      "fields": {
+        "data_exame": {
+          "type": "date",
+          "min": "2026-01-01",
+          "max": "2026-12-31"
+        },
+        "tipo_exame": {
+          "type": "enum",
+          "values": ["glicemia", "hemoglobina", "leucocitos", "plaquetas", "tsh"]
+        },
+        "valor": {
+          "type": "number",
+          "min": 70,
+          "max": 200
+        },
+        "unidade": {
+          "type": "enum",
+          "values": ["mg/dL", "g/dL", "mil/mm3", "uUI/mL"]
+        },
+        "referencia": {
+          "type": "string"
+        }
+      }
+    },
+    "cartao_vacinacao": {
+      "label": "Cartao de vacinacao",
+      "fields": {
+        "vacina": {
+          "type": "enum",
+          "values": ["dTpa", "influenza", "hepatite B", "covid-19", "dT"]
+        },
+        "data_aplicacao": {
+          "type": "date",
+          "min": "2026-01-01",
+          "max": "2026-12-31"
+        },
+        "lote": {
+          "type": "string"
+        },
+        "proxima_dose": {
+          "type": "date",
+          "min": "2026-01-01",
+          "max": "2027-03-31"
+        }
+      }
+    },
+    "receita_medica": {
+      "label": "Receita medica",
+      "fields": {
+        "medicamento": {
+          "type": "enum",
+          "values": ["sulfato ferroso", "acido folico", "carbonato de calcio", "vitamina D", "metildopa"]
+        },
+        "dose": {
+          "type": "string"
+        },
+        "posologia": {
+          "type": "string"
+        },
+        "crm_medico": {
+          "type": "string"
+        }
+      }
+    },
+    "resumo_pre_natal": {
+      "label": "Resumo de consulta pre-natal",
+      "fields": {
+        "data_consulta": {
+          "type": "date",
+          "min": "2026-01-01",
+          "max": "2026-12-31"
+        },
+        "peso_kg": {
+          "type": "number",
+          "min": 45,
+          "max": 120
+        },
+        "pressao": {
+          "type": "string",
+          "sistolica_min": 90,
+          "sistolica_max": 180,
+          "diastolica_min": 50,
+          "diastolica_max": 110
+        },
+        "idade_gestacional": {
+          "type": "integer",
+          "min": 4,
+          "max": 41
+        },
+        "observacoes": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

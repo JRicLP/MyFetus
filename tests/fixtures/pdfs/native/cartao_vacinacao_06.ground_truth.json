@@ -1,0 +1,21 @@
+{
+  "document_type": "cartao_vacinacao",
+  "fields": {
+    "vacina": "hepatite B",
+    "data_aplicacao": "2026-05-27",
+    "lote": "L2447-F",
+    "proxima_dose": "2026-07-20"
+  },
+  "file_name": "cartao_vacinacao_06.pdf",
+  "method": "pdfjs",
+  "text_tokens": [
+    "MyFetus - documento sintetico",
+    "Cartao de vacinacao",
+    "Identificador: cartao_vacinacao_06",
+    "Vacina: hepatite B",
+    "Data de aplicacao: 2026-05-27",
+    "Lote: L2447-F",
+    "Proxima dose: 2026-07-20",
+    "Dados ficticios gerados exclusivamente para testes automatizados."
+  ]
+}

@@ -28,6 +28,31 @@ Base URL padrão: `http://localhost:3000/api`
 
 Observação: o servidor expõe `/api` como prefixo de todas as rotas.
 
+### JWT de teste
+
+Para gerar um novo `JWT_SECRET` e imprimir um token de teste de `admin`, use o script abaixo dentro de `apps/api`:
+
+```bash
+node ./scripts/rotate-jwt-secret-and-generate-token.js --dry-run
+```
+
+Para aplicar a troca no `docker-compose.yml` e reiniciar o backend, execute sem `--dry-run` e com `--restart`:
+
+```bash
+node ./scripts/rotate-jwt-secret-and-generate-token.js --restart
+```
+
+O script imprime:
+- o novo `JWT_SECRET`
+- o JWT de teste já assinado
+- um `curl` pronto para validar o endpoint interno `POST /api/internal/loinc/term`
+
+Se preferir usar a JWT gerada manualmente em outro request, copie o token impresso e envie no header:
+
+```bash
+Authorization: Bearer <token-gerado>
+```
+
 ---
 
 **Restrições e observações**
@@ -148,8 +173,21 @@ curl -X POST http://localhost:3000/api/documents \
 - Listar por `pregnant_id`: GET `/api/documents?pregnant_id=<id>`
 - Consultar por id: GET `/api/documents/:id`
 - Baixar arquivo: GET `/api/documents/:id/download`
+- Consultar texto extraído: GET `/api/documents/:id/text`
+  - Retorna `200 OK` com `extraction_status`, `extracted_text`, `extraction_method` e metadados quando `extraction_status = done`.
+  - Retorna `202 Accepted` com o status atual enquanto o processamento ainda não terminou.
+- Reprocessar extração: POST `/api/documents/:id/extract`
+  - Enfileira o documento novamente para extração assíncrona.
 - Atualizar metadados: PUT `/api/documents/:id` (JSON com `document_name` e/ou `document_type`)
 - Deletar: DELETE `/api/documents/:id`
+
+Para habilitar as colunas de extração em um banco existente, aplique:
+
+```bash
+psql -U myuser -d mydatabase -f apps/api/db/migration_extracted_text.sql
+```
+
+O backend também inicia um worker periódico a cada 30 segundos, processando até 5 documentos `pending` por ciclo. No upload, a API dispara uma tentativa assíncrona imediata sem bloquear a resposta HTTP.
 
 ---
 

@@ -4,7 +4,11 @@
   "description": "**MyFetus** é um aplicativo móvel voltado ao acompanhamento gestacional, desenvolvido para conectar gestantes e médicos em uma plataforma integrada. O app permite monitorar o desenvolvimento semana a semana do bebê, registrar dados clínicos e acompanhar a saúde da gestante de forma prática e acessível.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "generate:dataset": "node scripts/generate_dataset.js",
+    "generate:dataset:ocr": "node scripts/generate_dataset.js --with-ocr",
+    "test:pdf-extractor": "node --experimental-vm-modules node_modules/jest/bin/jest.js tests/pdfExtractor.test.js --runInBand",
+    "accuracy:pdf": "node scripts/accuracy_report.js"
   },
   "repository": {
     "type": "git",
@@ -19,6 +23,8 @@
   },
   "homepage": "https://github.com/JRicLP/MyFetus#readme",
   "devDependencies": {
+    "jest": "^30.4.2",
+    "pdf-lib": "^1.17.1",
     "turbo": "^2.9.12"
   }
 }

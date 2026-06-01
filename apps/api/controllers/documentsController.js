@@ -4,6 +4,10 @@
  */
 const fs = require('fs');
 const client = require('../backend');
+const {
+  enqueueDocumentTextExtraction,
+  processDocumentTextExtraction,
+} = require('../services/documentExtractionWorker');
 
 const ALLOWED_DOCUMENT_UPDATE_FIELDS = ['document_name', 'document_type'];
 
@@ -119,8 +123,10 @@ const uploadDocument = async (req, res) => {
       [pregnant_id, document_name, document_type, file_path]
     );
 
+    enqueueDocumentTextExtraction(result.rows[0].id);
+
     res.status(201).json({
-      message: 'Documento enviado e associado com sucesso!',
+      message: 'Documento enviado e associado com sucesso! Extração de texto iniciada.',
       document: result.rows[0],
     });
   } catch (err) {
@@ -301,6 +307,76 @@ const updateDocument = async (req, res) => {
   }
 };
 
+/**
+ * Função 7
+ * Retorna apenas o texto extraído e os metadados do processamento de um documento.
+ */
+const getDocumentExtractedText = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const document = await findDocumentById(id);
+
+    if (!document) {
+      return res.status(404).json({ error: 'Documento não encontrado.' });
+    }
+
+    const canAccess = await ensureCanAccessPregnant(req, res, document.pregnant_id);
+    if (!canAccess) return;
+
+    if (document.extraction_status !== 'done') {
+      return res.status(202).json({
+        document_id: document.id,
+        extraction_status: document.extraction_status,
+        extraction_error: document.extraction_error,
+      });
+    }
+
+    res.json({
+      document_id: document.id,
+      extraction_status: document.extraction_status,
+      extraction_method: document.extraction_method,
+      extraction_confidence: document.extraction_confidence,
+      extraction_error: document.extraction_error,
+      extraction_attempts: document.extraction_attempts,
+      extracted_at: document.extracted_at,
+      extracted_text: document.extracted_text,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+/**
+ * Função 8
+ * Reenvia um documento já salvo para o worker de extração de texto.
+ */
+const retryDocumentTextExtraction = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const document = await findDocumentById(id);
+
+    if (!document) {
+      return res.status(404).json({ error: 'Documento não encontrado.' });
+    }
+
+    const canAccess = await ensureCanAccessPregnant(req, res, document.pregnant_id);
+    if (!canAccess) return;
+
+    processDocumentTextExtraction(document.id).catch((err) => {
+      console.error(`Erro inesperado ao reprocessar documento ${document.id}:`, err);
+    });
+
+    res.status(202).json({
+      message: 'Documento enviado para reprocessamento de texto.',
+      document_id: document.id,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 module.exports = {
   uploadDocument,
   getDocuments,
@@ -308,4 +384,6 @@ module.exports = {
   downloadDocument,
   deleteDocument,
   updateDocument,
+  getDocumentExtractedText,
+  retryDocumentTextExtraction,
 };

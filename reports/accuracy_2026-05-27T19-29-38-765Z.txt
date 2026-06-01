@@ -1,0 +1,12 @@
+Tipo de documento              | Metodo  | Qtd | Acuracia
+-----------------              | ------  | --- | --------
+cartao_vacinacao               | pdfjs   |  10 |   100.0%
+exame_laboratorial             | pdfjs   |  10 |   100.0%
+laudo_ultrassonografia         | pdfjs   |  10 |   100.0%
+receita_medica                 | pdfjs   |  10 |   100.0%
+resumo_pre_natal               | pdfjs   |  10 |   100.0%
+cartao_vacinacao               | ocr     |   5 |   100.0%
+exame_laboratorial             | ocr     |   5 |   100.0%
+laudo_ultrassonografia         | ocr     |   5 |   100.0%
+receita_medica                 | ocr     |   5 |   100.0%
+resumo_pre_natal               | ocr     |   5 |   100.0%

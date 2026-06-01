@@ -1,0 +1,25 @@
+{
+  "document_type": "laudo_ultrassonografia",
+  "fields": {
+    "data_exame": "2026-12-23",
+    "semana_gestacional": 27,
+    "ccn_mm": 6.9,
+    "bpd_mm": 60.5,
+    "ca_mm": 223.7,
+    "cfl_mm": 61.4
+  },
+  "file_name": "laudo_ultrassonografia_05.pdf",
+  "method": "pdfjs",
+  "text_tokens": [
+    "MyFetus - documento sintetico",
+    "Laudo de ultrassonografia obstetrica",
+    "Identificador: laudo_ultrassonografia_05",
+    "Data do exame: 2026-12-23",
+    "Semana gestacional: 27",
+    "CCN mm: 6.9",
+    "BPD mm: 60.5",
+    "CA mm: 223.7",
+    "CFL mm: 61.4",
+    "Dados ficticios gerados exclusivamente para testes automatizados."
+  ]
+}

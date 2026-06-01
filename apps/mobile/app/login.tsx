@@ -41,7 +41,7 @@ export default function LoginScreen() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'E-mail ou senha inválidos');
+        throw new Error(data.error || data.message || 'E-mail ou senha inválidos');
       }
 
       if (data.token) {
@@ -49,13 +49,11 @@ export default function LoginScreen() {
       }
 
       console.log('Usuário autenticado:', data);
-      
-      try {
+     
+      if (data.token) {
+        await AsyncStorage.setItem('authToken', data.token);
+      }
       await AsyncStorage.setItem('userData', JSON.stringify(data.user));
-    } catch (e) {
-      console.error('Erro ao salvar dados do usuário', e);
-    }
-      
      
 
       // admin ou user
