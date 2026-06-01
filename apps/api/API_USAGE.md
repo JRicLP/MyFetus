@@ -47,6 +47,22 @@ O script imprime:
 - o JWT de teste já assinado
 - um `curl` pronto para validar o endpoint interno `POST /api/internal/loinc/term`
 
+### JWT de teste sem rotacionar segredo
+
+Se você só quer gerar um token válido com o `JWT_SECRET` atual do `docker-compose.yml`, use este script:
+
+```bash
+npm run jwt:test-token
+```
+
+Ele lê o segredo atual do `docker-compose.yml`, gera um JWT de `admin` com validade de 8 horas e imprime também um `curl` pronto para testar o endpoint interno de RAG:
+
+```bash
+POST /api/internal/rag/search
+```
+
+Use esse fluxo quando quiser apenas autenticar chamadas locais sem alterar a configuração do backend.
+
 Se preferir usar a JWT gerada manualmente em outro request, copie o token impresso e envie no header:
 
 ```bash
@@ -60,6 +76,7 @@ Authorization: Bearer <token-gerado>
 - Campo `role` em `users` aceita apenas: `gestante`, `medico`, `admin`.
 - Uploads de documentos usam `multer` e salvam arquivos em `uploads/`.
 - O script de testes está em `apps/api/test_api.sh` e verifica os principais endpoints.
+- O comando `npm run jwt:test-token` gera um JWT de teste a partir do `JWT_SECRET` já presente no `docker-compose.yml`, sem rotacionar segredo nem reiniciar o backend.
 
 ---
 
