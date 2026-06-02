@@ -12,6 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { apiUrl } from '../../utils/api';
 
 // Ícones para os status
 const statusIcons: { [key: string]: any } = {
@@ -66,7 +67,7 @@ export default function DashboardScreen() {
         }
 
         // 2. Lista de Pacientes (API Melhorada)
-        const response = await fetch('http://localhost:3000/api/pregnants');
+        const response = await fetch(apiUrl('/api/pregnants'));
         if (!response.ok) throw new Error('Erro ao buscar pacientes');
         const data = await response.json();
         setPatients(data);

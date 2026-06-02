@@ -12,6 +12,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router'; 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiUrl } from '../utils/api';
 
 
 
@@ -29,7 +30,7 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:3000/api/users/login', {
+      const response = await fetch(apiUrl('/api/users/login'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -43,6 +44,10 @@ export default function LoginScreen() {
         throw new Error(data.error || data.message || 'E-mail ou senha inválidos');
       }
 
+      if (data.token) {
+        await AsyncStorage.setItem('authToken', data.token);
+      }
+
       console.log('Usuário autenticado:', data);
      
       if (data.token) {
@@ -51,10 +56,13 @@ export default function LoginScreen() {
       await AsyncStorage.setItem('userData', JSON.stringify(data.user));
      
 
+      // admin ou user
       if (data.user.role === 'admin' || data.user.role === 'medico') {
+        // admin (médico)
         router.push('/doctor/dashboard'); 
       } else {
-        router.push('/outra-gestacao');
+        // É um paciente
+        router.push('/outra-gestacao'); // A tela padrão do paciente
       }
 
     } catch (error) {

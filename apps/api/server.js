@@ -36,6 +36,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const db = require('./backend');
 const logger = require('./utils/logger');
 
 const app = express();
@@ -83,6 +84,7 @@ const pregnancyEventsRoutes = require('./routes/pregnancyEvents');
 const documentsRoutes = require('./routes/documents');
 const fetalMeasurementsRoutes = require('./routes/medicoes');
 const syncRoutes = require('./routes/sync');
+const internalLoincRoutes = require('./routes/internalLoinc');
 const { startDocumentTextExtractionWorker } = require('./workers/pdfWorker');
 const { startVectorIndexWorker } = require('./services/vectorIndexWorker');
 
@@ -94,6 +96,7 @@ app.use('/api/pregnancyEvents', pregnancyEventsRoutes);
 app.use('/api/documents', documentsRoutes);
 app.use('/api/medicoes', fetalMeasurementsRoutes);
 app.use('/api/sync', syncRoutes);
+app.use('/api/internal/loinc', internalLoincRoutes);
 
 //Rota de teste (para verificar se o backend está no ar)
 app.get('/ping', (req, res) => {

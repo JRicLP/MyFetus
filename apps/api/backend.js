@@ -40,9 +40,20 @@ const client = new Pool({
 
 // Teste inicial de conexão
 client.connect()
-  .then(() => logger.info('✅ Conectado ao PostgreSQL com sucesso!'))
+  .then(() => {
+    logger.info('✅ Conectado ao PostgreSQL com sucesso!');
+    
+    // Inicializa o catálogo LOINC após a conexão estar pronta
+    const { initializeLoincTable } = require('./utils/loincInitializer');
+    initializeLoincTable().catch((err) => {
+      logger.error('⚠️ Aviso ao inicializar catálogo LOINC:', {
+        details: err.message
+      });
+    });
+  })
   .catch((err) => logger.error('❌ Erro ao conectar ao banco de dados', {
     details: err.message
   }));
 
 module.exports = client;
+module.exports.pool = client; // Alias para compatibilidade
