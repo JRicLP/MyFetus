@@ -32,13 +32,11 @@ const {
   updateDocument,
   getDocumentExtractedText,
   retryDocumentTextExtraction,
-  semanticSearchDocuments,
 } = require('../controllers/documentsController');
 const { authenticateToken, requireRole } = require('../middlewares/auth');
 
 const upload = multer({ dest: 'uploads/' }); // pasta para salvar arquivos temporariamente
 const requireDocumentAccess = [authenticateToken, requireRole('medico', 'admin')];
-const requireSemanticSearchAccess = [authenticateToken];
 
 router.post(
   '/',
@@ -50,7 +48,6 @@ router.post(
   uploadDocument
 );
 router.get('/', requireDocumentAccess, getDocuments); // lista por pregnant_id (query param)
-router.post('/search', requireSemanticSearchAccess, semanticSearchDocuments);
 router.get('/:id/download', requireDocumentAccess, downloadDocument);
 router.get('/:id/text', requireDocumentAccess, getDocumentExtractedText);
 router.post('/:id/extract', requireDocumentAccess, retryDocumentTextExtraction);
