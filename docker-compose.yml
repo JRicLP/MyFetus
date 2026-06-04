@@ -39,7 +39,7 @@ services:
       PORT: 3000
 
     # teste JWT e CORS
-      JWT_SECRET: KpMMxgN2MYxRQMoXjG8Rk2YcR4XwBorIdUcXUJPWk608OQ-maT0KCAgfw-s0NGKy
+      JWT_SECRET: nLV-T1kUPRtylZAdM72lFl6tXOP9UK-D3A1E2HqEQH2VIZxAHUTH1_EAPsWE7SoM
       JWT_EXPIRES_IN: 8h
       CORS_ORIGIN: http://localhost:8081,http://localhost:19006,http://localhost:3000
       OCR_LANGUAGES: por+eng
