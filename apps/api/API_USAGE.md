@@ -294,3 +294,21 @@ Arquivo de referência do projeto:
 - Script de teste: `apps/api/test_api.sh`
 - Controllers: `apps/api/controllers/` (ver implementação das rotas)
 - Esquema do banco: `apps/api/db/create_tables.sql`
+
+## Setup local
+
+### Gerar dataset de teste (PDFs escaneados)
+```bash
+node scripts/generate_dataset.js --with-ocr
+```
+
+### Baixar guidelines clínicos
+```bash
+# Criar a pasta e baixar manualmente os PDFs de:
+# - FEBRASGO: https://...
+# - ACOG: https://...
+# - Manual MS: https://...
+mkdir -p apps/api/data/guidelines/
+```
+
+Se os PDFs das guidelines forem de uso interno ou já tiverem URL fixa, você pode criar um script `scripts/download_guidelines.sh` que faz o download automaticamente — aí o setup fica com um único comando.
