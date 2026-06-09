@@ -7,7 +7,7 @@ const evaluationCriteria = [
   {
     scenario_id: 'preeclampsia',
     estagio: 1,
-    fontes_esperadas: ['FEBRASGO', 'ACOG'],
+    fontes_esperadas: ['FEBRASGO', 'ACOG', 'Ministério da Saúde'],
     termos_obrigatorios: ['pressão arterial', 'proteinúria'],
     relevancia_minima: 0.65,
     latencia_maxima_ms: 3000,
@@ -16,7 +16,7 @@ const evaluationCriteria = [
   {
     scenario_id: 'preeclampsia',
     estagio: 2,
-    fontes_esperadas: ['FEBRASGO', 'ACOG'],
+    fontes_esperadas: ['FEBRASGO', 'ACOG', 'Ministério da Saúde'],
     termos_obrigatorios: ['hipertensão', 'proteinúria', 'monitorização'],
     relevancia_minima: 0.65,
     latencia_maxima_ms: 3000,

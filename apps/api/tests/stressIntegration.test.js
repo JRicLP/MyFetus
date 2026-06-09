@@ -40,6 +40,18 @@ async function main() {
 
   const report = await runScenario(scenario, client, { topK: 5 });
 
+  console.log('\n--- BOLETIM DA IA ---');
+  report.estagios[0].resultados.forEach((r, i) => {
+    console.log(`\nPergunta ${i + 1}: ${r.query}`);
+    console.log(`Aprovada? ${r.evaluation.approved}`);
+    console.log(`Relevância Máxima: ${r.evaluation.max_relevance.toFixed(4)}`);
+    console.log(`Latência (ms): ${r.latency_ms}`);
+    console.log(`Passou no Tempo? ${r.evaluation.latency_within_limit}`);
+    console.log(`Fontes Encontradas:`, r.evaluation.sources_found);
+    console.log(`🚨 Termos Faltando:`, r.evaluation.terms_missing);
+  });
+  console.log('---------------------\n');
+
   const falhas = report.estagios[0].resultados.filter(r => !r.success);
   if (falhas.length > 0) console.dir(falhas.map(f => f.error), { depth: null });
 
