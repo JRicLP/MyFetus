@@ -23,7 +23,9 @@
     "test:loinc": "docker compose run --rm backend node /app/tests/loincMapper.test.js",
     "test:loinc:endpoint": "docker compose run --rm backend node /app/tests/internalLoinc.test.js",
     "test:rag": "node ./tests/ragRetrieval.test.js",
-    "test:stress-engine": "node ./tests/stressEngine.test.js"
+    "test:stress-engine": "node ./tests/stressEngine.test.js",
+    "test:stress": "node ./tests/stressTest.test.js",
+    "test:stress:integration": "node ./tests/stressIntegration.test.js --integration"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",
