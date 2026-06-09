@@ -1,3 +1,4 @@
+require('dotenv').config();
 const assert = require('assert');
 
 const { RagClient } = require('../../../scripts/stress_test/engine/ragClient');
@@ -38,6 +39,9 @@ async function main() {
   };
 
   const report = await runScenario(scenario, client, { topK: 5 });
+
+  const falhas = report.estagios[0].resultados.filter(r => !r.success);
+  if (falhas.length > 0) console.dir(falhas.map(f => f.error), { depth: null });
 
   assert.strictEqual(report.estagios_executados, 1);
   assert.strictEqual(report.queries_executadas, 2);

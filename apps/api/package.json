@@ -9,14 +9,11 @@
     "jwt:test-token": "node ./scripts/generate-jwt-test-token.js",
     "jwt:rotate:test": "node ./scripts/rotate-jwt-secret-and-generate-token.js",
     "extract:documents": "node workers/extractDocuments.js",
-
     "rag:ingest": "node workers/ingestRagDocuments.js",
     "rag:test-search": "node tests/ragSearch.test.js",
-
     "test:chunking": "node tests/chunkingService.test.js",
     "test:embedding": "node tests/embeddingService.test.js",
     "test:pinecone": "node tests/vectorStoreService.test.js",
-
     "test:pii": "node ./tests/piiSanitizer.test.js",
     "test:logger": "node ./tests/logger.test.js",
     "test:db": "docker compose run --rm backend node /app/tests/database.test.js",
@@ -33,7 +30,7 @@
     "@pinecone-database/pinecone": "^6.1.4",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
-    "dotenv": "^16.5.0",
+    "dotenv": "^16.6.1",
     "express": "^5.1.0",
     "express-validator": "^7.2.1",
     "jsonwebtoken": "^9.0.3",
