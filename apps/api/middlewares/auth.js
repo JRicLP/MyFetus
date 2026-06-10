@@ -18,6 +18,7 @@ function authenticateToken(req, res, next) {
     req.user = payload;
     next();
   } catch (err) {
+    console.error("🚨 MOTIVO DA FALHA NO TOKEN:", err.message);
     return res.status(401).json({ error: 'Token inválido ou expirado' });
   }
 }
