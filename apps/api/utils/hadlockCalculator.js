@@ -45,23 +45,29 @@ function normalCDF(z) {
 /**
  * Calcula o Peso Fetal Estimado (PFE) usando a fórmula de Hadlock IV
  */
+// --- LÓGICA CLÍNICA DE HADLOCK ---
+
+/**
+ * Calcula o Peso Fetal Estimado (PFE) usando a fórmula de Hadlock IV
+ */
 function calculateEstimatedWeight(biometrics) {
-    let { dbp, cc, ca, cf } = biometrics || {};
+  // CORREÇÃO 1: Usando 'let' para permitir a conversão para centímetros
+  let { dbp, cc, ca, cf } = biometrics || {};
 
-    if (
-        typeof dbp !== 'number' || dbp <= 0 ||
-        typeof cc !== 'number' || cc <= 0 ||
-        typeof ca !== 'number' || ca <= 0 ||
-        typeof cf !== 'number' || cf <= 0
-        ) {
-        throw new Error('Parâmetros biométricos inválidos. Todas as medidas devem ser números maiores que zero.');
-    }
+  if (
+    typeof dbp !== 'number' || dbp <= 0 ||
+    typeof cc !== 'number' || cc <= 0 ||
+    typeof ca !== 'number' || ca <= 0 ||
+    typeof cf !== 'number' || cf <= 0
+  ) {
+    throw new Error('Parâmetros biométricos inválidos. Todas as medidas devem ser números maiores que zero.');
+  }
 
-  // Convertendo mm para cm
-  dbp = biometrics.dbp / 10;
-  cc = biometrics.cc / 10;
-  ca = biometrics.ca / 10;
-  cf = biometrics.cf / 10;
+  // Convertendo mm para cm (agora permitido pelo 'let')
+  dbp = dbp / 10;
+  cc = cc / 10;
+  ca = ca / 10;
+  cf = cf / 10;
 
   const log10Weight = 1.3596 
     - (0.00386 * ca * cf) 
@@ -77,11 +83,12 @@ function calculateEstimatedWeight(biometrics) {
  * Calcula o peso mediano esperado para a idade gestacional (Fórmula de Hadlock 1991)
  */
 function calculateExpectedMedianWeight(gaWeeks) {
+  // CORREÇÃO 2: Verificação rígida de tipo para a idade gestacional
   if (typeof gaWeeks !== 'number' || isNaN(gaWeeks) || gaWeeks < 10 || gaWeeks > 42) {
     throw new Error('A idade gestacional deve ser um número válido entre 10 e 42 semanas.');
   }
   
-  // Equação correta de Hadlock para o 50º percentil: ln(EFW) = 0.578 + 0.332(GA) - 0.00354(GA)²
+  // Equação correta de Hadlock para o 50º percentil
   const lnWeight = 0.578 + (0.332 * gaWeeks) - (0.00354 * Math.pow(gaWeeks, 2));
     
   return Math.exp(lnWeight);
@@ -94,11 +101,9 @@ function calculateHadlockPercentile(gestationalAgeWeeks, biometrics) {
   const estimatedWeightGrams = calculateEstimatedWeight(biometrics);
   const expectedMedianWeight = calculateExpectedMedianWeight(gestationalAgeWeeks);
   
-  // Na curva de Hadlock, o desvio padrão empírico é aproximadamente 12% do peso esperado
-  const standardDeviation = expectedMedianWeight * 0.12;
-  
-  // Cálculo do Z-Score (quantos desvios padrão o feto está da média)
-  const zScore = (estimatedWeightGrams - expectedMedianWeight) / standardDeviation;
+  // CORREÇÃO 3: Distribuição Log-Normal para precisão clínica nos extremos
+  const logCV = 0.12; // 12% de coeficiente de variação
+  const zScore = (Math.log(estimatedWeightGrams) - Math.log(expectedMedianWeight)) / logCV;
   
   // Transformação matemática do Z-Score no percentil exato
   const percentile = normalCDF(zScore) * 100;
