@@ -1,0 +1,111 @@
+// apps/api/utils/hadlockCalculator.js
+
+/**
+ * Interface esperada de Biometria Fetal (medidas em milímetros)
+ * @typedef {Object} FetalBiometrics
+ * @property {number} dbp - Diâmetro Biparietal (mm)
+ * @property {number} cc - Circunferência Cefálica (mm)
+ * @property {number} ca - Circunferência Abdominal (mm)
+ * @property {number} cf - Comprimento do Fêmur (mm)
+ */
+
+// --- FUNÇÕES UTILITÁRIAS MATEMÁTICAS ---
+
+/**
+ * Aproximação de Abramowitz e Stegun para a Função de Erro (erf)
+ * Necessária para calcular a Distribuição Normal Acumulada.
+ */
+function erf(x) {
+  const sign = x >= 0 ? 1 : -1;
+  x = Math.abs(x);
+  
+  const a1 = 0.254829592;
+  const a2 = -0.284496736;
+  const a3 = 1.421413741;
+  const a4 = -1.453152027;
+  const a5 = 1.061405429;
+  const p  = 0.3275911;
+
+  const t = 1.0 / (1.0 + p * x);
+  const y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+
+  return sign * y;
+}
+
+/**
+ * Função de Distribuição Acumulada (CDF) para a distribuição normal padrão
+ * Converte o Z-Score numa probabilidade (0.0 a 1.0)
+ */
+function normalCDF(z) {
+  return 0.5 * (1 + erf(z / Math.sqrt(2)));
+}
+
+// --- LÓGICA CLÍNICA DE HADLOCK ---
+
+/**
+ * Calcula o Peso Fetal Estimado (PFE) usando a fórmula de Hadlock IV
+ */
+function calculateEstimatedWeight(biometrics) {
+  if (!biometrics || biometrics.dbp <= 0 || biometrics.cc <= 0 || biometrics.ca <= 0 || biometrics.cf <= 0) {
+    throw new Error('Parâmetros biométricos inválidos. As medidas devem ser maiores que zero.');
+  }
+
+  // Convertendo mm para cm
+  const dbp = biometrics.dbp / 10;
+  const cc = biometrics.cc / 10;
+  const ca = biometrics.ca / 10;
+  const cf = biometrics.cf / 10;
+
+  const log10Weight = 1.3596 
+    - (0.00386 * ca * cf) 
+    + (0.0064 * cc) 
+    + (0.00061 * dbp * ca) 
+    + (0.0424 * ca) 
+    + (0.174 * cf);
+
+  return Math.pow(10, log10Weight);
+}
+
+/**
+ * Calcula o peso mediano esperado para a idade gestacional (Fórmula de Hadlock 1991)
+ */
+function calculateExpectedMedianWeight(gaWeeks) {
+  if (gaWeeks < 10 || gaWeeks > 42) {
+    throw new Error('A idade gestacional deve estar entre 10 e 42 semanas para o modelo de Hadlock.');
+  }
+  
+  // Equação correta de Hadlock para o 50º percentil: ln(EFW) = 0.578 + 0.332(GA) - 0.00354(GA)²
+  const lnWeight = 0.578 + (0.332 * gaWeeks) - (0.00354 * Math.pow(gaWeeks, 2));
+    
+  return Math.exp(lnWeight);
+}
+
+/**
+ * Calcula o percentil e o Z-Score para uma determinada biometria e idade gestacional
+ */
+function calculateHadlockPercentile(gestationalAgeWeeks, biometrics) {
+  const estimatedWeightGrams = calculateEstimatedWeight(biometrics);
+  const expectedMedianWeight = calculateExpectedMedianWeight(gestationalAgeWeeks);
+  
+  // Na curva de Hadlock, o desvio padrão empírico é aproximadamente 12% do peso esperado
+  const standardDeviation = expectedMedianWeight * 0.12;
+  
+  // Cálculo do Z-Score (quantos desvios padrão o feto está da média)
+  const zScore = (estimatedWeightGrams - expectedMedianWeight) / standardDeviation;
+  
+  // Transformação matemática do Z-Score no percentil exato
+  const percentile = normalCDF(zScore) * 100;
+  
+  return {
+    estimatedWeightGrams: Math.round(estimatedWeightGrams),
+    expectedMedianWeight: Math.round(expectedMedianWeight),
+    percentile: parseFloat(percentile.toFixed(2)),
+    zScore: parseFloat(zScore.toFixed(3))
+  };
+}
+
+module.exports = {
+  calculateHadlockPercentile,
+  calculateEstimatedWeight,
+  calculateExpectedMedianWeight
+};

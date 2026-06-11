@@ -22,7 +22,8 @@
     "test:rag": "node ./tests/ragRetrieval.test.js",
     "test:stress-engine": "node ./tests/stressEngine.test.js",
     "test:stress": "node ./tests/stressTest.test.js",
-    "test:stress:integration": "node ./tests/stressIntegration.test.js --integration"
+    "test:stress:integration": "node ./tests/stressIntegration.test.js --integration",
+    "test:hadlockCalculator": "node ./tests/hadlockCalculator.test.js"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",
