@@ -104,8 +104,42 @@ function calculateHadlockPercentile(gestationalAgeWeeks, biometrics) {
   };
 }
 
+/**
+ * Gera os dados de fundo para o Frontend desenhar o gráfico da curva de Hadlock.
+ * Retorna os pesos esperados para os percentis 10, 50 e 90 numa dada semana.
+ */
+function generateCurvePointsForWeek(gaWeeks) {
+  const p50Weight = calculateExpectedMedianWeight(gaWeeks);
+  const stdDev = p50Weight * 0.12; // 12% de desvio padrão na curva de Hadlock
+
+  // Z-scores aproximados para os limites clínicos normais
+  const zScoreP10 = -1.28155; 
+  const zScoreP90 = 1.28155;
+
+  return {
+    semana: gaWeeks,
+    p10: Math.round(p50Weight + (zScoreP10 * stdDev)),
+    p50: Math.round(p50Weight),
+    p90: Math.round(p50Weight + (zScoreP90 * stdDev))
+  };
+}
+
+/**
+ * Gera a curva completa de crescimento desde as 10 até às 40 semanas
+ */
+function generateFullGrowthChartBackground() {
+  const chartData = [];
+  for (let week = 10; week <= 40; week++) {
+    chartData.push(generateCurvePointsForWeek(week));
+  }
+  return chartData;
+}
+
 module.exports = {
   calculateHadlockPercentile,
   calculateEstimatedWeight,
-  calculateExpectedMedianWeight
+  calculateExpectedMedianWeight,
+  generateCurvePointsForWeek,
+  generateFullGrowthChartBackground
 };
+
