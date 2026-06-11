@@ -46,15 +46,22 @@ function normalCDF(z) {
  * Calcula o Peso Fetal Estimado (PFE) usando a fórmula de Hadlock IV
  */
 function calculateEstimatedWeight(biometrics) {
-  if (!biometrics || biometrics.dbp <= 0 || biometrics.cc <= 0 || biometrics.ca <= 0 || biometrics.cf <= 0) {
-    throw new Error('Parâmetros biométricos inválidos. As medidas devem ser maiores que zero.');
-  }
+    let { dbp, cc, ca, cf } = biometrics || {};
+
+    if (
+        typeof dbp !== 'number' || dbp <= 0 ||
+        typeof cc !== 'number' || cc <= 0 ||
+        typeof ca !== 'number' || ca <= 0 ||
+        typeof cf !== 'number' || cf <= 0
+        ) {
+        throw new Error('Parâmetros biométricos inválidos. Todas as medidas devem ser números maiores que zero.');
+    }
 
   // Convertendo mm para cm
-  const dbp = biometrics.dbp / 10;
-  const cc = biometrics.cc / 10;
-  const ca = biometrics.ca / 10;
-  const cf = biometrics.cf / 10;
+  dbp = biometrics.dbp / 10;
+  cc = biometrics.cc / 10;
+  ca = biometrics.ca / 10;
+  cf = biometrics.cf / 10;
 
   const log10Weight = 1.3596 
     - (0.00386 * ca * cf) 
