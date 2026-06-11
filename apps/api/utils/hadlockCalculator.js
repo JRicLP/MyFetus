@@ -77,8 +77,8 @@ function calculateEstimatedWeight(biometrics) {
  * Calcula o peso mediano esperado para a idade gestacional (Fórmula de Hadlock 1991)
  */
 function calculateExpectedMedianWeight(gaWeeks) {
-  if (gaWeeks < 10 || gaWeeks > 42) {
-    throw new Error('A idade gestacional deve estar entre 10 e 42 semanas para o modelo de Hadlock.');
+  if (typeof gaWeeks !== 'number' || isNaN(gaWeeks) || gaWeeks < 10 || gaWeeks > 42) {
+    throw new Error('A idade gestacional deve ser um número válido entre 10 e 42 semanas.');
   }
   
   // Equação correta de Hadlock para o 50º percentil: ln(EFW) = 0.578 + 0.332(GA) - 0.00354(GA)²

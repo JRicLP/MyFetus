@@ -43,14 +43,13 @@ runTest('Deve lançar erro se a idade gestacional estiver fora da janela clínic
   const validBiometrics = { dbp: 50, cc: 180, ca: 150, cf: 35 };
   assert.throws(
     () => calculateHadlockPercentile(8, validBiometrics),
-    /A idade gestacional deve estar entre 10 e 42/
+    /A idade gestacional deve ser um número válido entre 10 e 42/
   );
   assert.throws(
     () => calculateHadlockPercentile(45, validBiometrics),
-    /A idade gestacional deve estar entre 10 e 42/
+    /A idade gestacional deve ser um número válido entre 10 e 42/
   );
 });
-
 // ----------------------------------------------------------------------
 // Suíte 2: Precisão Matemática (sem usar mocks)
 // ----------------------------------------------------------------------
