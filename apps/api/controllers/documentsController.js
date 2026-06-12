@@ -1,328 +1,338 @@
-/**
- * Controlador responsável por gerenciar documentos de gestantes.
- * Inclui funções para upload, listagem, consulta, atualização e exclusão de documentos.
- */
-const fs = require('fs');
+const crypto = require('crypto');
+const fs = require('fs/promises');
+const path = require('path');
 const client = require('../backend');
+const cryptoService = require('../services/cryptoService');
+const fileCryptoService = require('../services/fileCryptoService');
 const {
   enqueueDocumentTextExtraction,
   processDocumentTextExtraction,
 } = require('../services/documentExtractionWorker');
+const logger = require('../utils/logger');
 
 const ALLOWED_DOCUMENT_UPDATE_FIELDS = ['document_name', 'document_type'];
+const ENCRYPTED_STORAGE_DIR = path.resolve(
+  process.env.DOCUMENT_STORAGE_DIR || 'uploads/encrypted'
+);
 
 function getUploadedFile(req) {
   return req.files?.file?.[0] || req.files?.document?.[0] || req.file || null;
 }
 
-function removeFileIfExists(filePath) {
-  if (filePath && fs.existsSync(filePath)) {
-    fs.unlinkSync(filePath);
-  }
+async function removeFileIfExists(filePath) {
+  if (filePath) await fs.rm(filePath, { force: true });
 }
 
-function cleanupUploadedFile(req) {
-  const file = getUploadedFile(req);
-  removeFileIfExists(file?.path);
+async function cleanupUploadedFile(req) {
+  await removeFileIfExists(getUploadedFile(req)?.path);
+}
+
+function decryptDocument(document) {
+  return document
+    ? cryptoService.decryptRecord(document, 'pregnant_documents')
+    : null;
+}
+
+function sanitizeDocument(document) {
+  if (!document) return null;
+  const { file_path, ...safeDocument } = decryptDocument(document);
+  return safeDocument;
 }
 
 async function doctorCanAccessPregnant(doctorId, pregnantId) {
   const result = await client.query(
-    `
-    SELECT 1
-    FROM doctor_patient_links
-    WHERE doctor_id = $1
-      AND pregnant_id = $2
-      AND status = 'active'
-    LIMIT 1
-    `,
+    `SELECT 1 FROM doctor_patient_links
+      WHERE doctor_id = $1 AND pregnant_id = $2 AND status = 'active'
+      LIMIT 1`,
     [doctorId, pregnantId]
   );
-
   return result.rows.length > 0;
 }
 
 async function ensureCanAccessPregnant(req, res, pregnantId) {
   if (!req.user) {
-    res.status(401).json({ error: 'Usuário não autenticado' });
+    res.status(401).json({ error: 'Usuario nao autenticado' });
     return false;
   }
-
   if (!pregnantId) {
-    res.status(400).json({ error: 'pregnant_id é obrigatório.' });
+    res.status(400).json({ error: 'pregnant_id e obrigatorio' });
     return false;
   }
-
-  if (req.user.role === 'admin') {
-    return true;
-  }
-
+  if (req.user.role === 'admin') return true;
   if (req.user.role === 'medico') {
-    const allowed = await doctorCanAccessPregnant(req.user.id, pregnantId);
-
-    if (!allowed) {
-      res.status(403).json({ error: 'Médico não vinculado a esta gestante' });
+    if (!(await doctorCanAccessPregnant(req.user.id, pregnantId))) {
+      res.status(403).json({ error: 'Medico nao vinculado a esta gestante' });
       return false;
     }
-
     return true;
   }
-
-  res.status(403).json({ error: 'Perfil de usuário não autorizado' });
+  res.status(403).json({ error: 'Perfil de usuario nao autorizado' });
   return false;
 }
 
-async function findDocumentById(id) {
-  const result = await client.query(
+async function findDocumentById(id, dbClient = client) {
+  const result = await dbClient.query(
     'SELECT * FROM pregnant_documents WHERE id = $1',
     [id]
   );
-
   return result.rows[0] || null;
 }
 
-/**
- * Função 1
- * Faz o upload de um documento e associa à gestante correspondente.
- * 
- * Parâmetros:
- *  - req[Object]: Requisição contendo `file` (arquivo enviado) e `body` (pregnant_id, document_name, document_type).
- *  - res[Object]: Resposta HTTP.
- * 
- * Retorno:
- *  - [JSON]: Documento inserido no banco de dados e mensagem de sucesso.
- */
+function encryptedFilePath() {
+  return path.join(ENCRYPTED_STORAGE_DIR, `${crypto.randomUUID()}.mfe`);
+}
+
 const uploadDocument = async (req, res) => {
+  const file = getUploadedFile(req);
+  let storedPath;
+  let dbClient;
+  let committed = false;
+
   try {
-    const file = getUploadedFile(req);
-    if (!file) return res.status(400).send('Nenhum arquivo enviado.');
-
-    const { pregnant_id, document_name, document_type } = req.body;
-    if (!pregnant_id) {
-      cleanupUploadedFile(req);
-      return res.status(400).json({ error: 'pregnant_id é obrigatório.' });
+    if (!file) return res.status(400).send('Nenhum arquivo enviado');
+    const { pregnant_id, document_name } = req.body || {};
+    const document_type = req.body?.document_type || file.mimetype || null;
+    if (!pregnant_id || !document_name) {
+      await cleanupUploadedFile(req);
+      return res.status(400).json({
+        error: 'pregnant_id e document_name sao obrigatorios',
+      });
     }
-    if (!document_name) {
-      cleanupUploadedFile(req);
-      return res.status(400).json({ error: 'document_name é obrigatório.' });
-    }
-
-    const canAccess = await ensureCanAccessPregnant(req, res, pregnant_id);
-    if (!canAccess) {
-      cleanupUploadedFile(req);
+    if (!(await ensureCanAccessPregnant(req, res, pregnant_id))) {
+      await cleanupUploadedFile(req);
       return;
     }
 
-    // O multer salva o arquivo em file.path (caminho do arquivo salvo)
-    const file_path = file.path;
-
-    const result = await client.query(
-      `INSERT INTO pregnant_documents 
-        (pregnant_id, document_name, document_type, file_path) 
-       VALUES ($1, $2, $3, $4) RETURNING *`,
-      [pregnant_id, document_name, document_type, file_path]
+    storedPath = encryptedFilePath();
+    await fileCryptoService.encryptFile(
+      file.path,
+      storedPath,
+      { pregnantId: pregnant_id }
     );
+    await cleanupUploadedFile(req);
 
-    enqueueDocumentTextExtraction(result.rows[0].id);
+    const encryptedMetadata = cryptoService.encryptRecord(
+      { document_name, document_type },
+      'pregnant_documents'
+    );
+    dbClient = await client.connect();
+    await dbClient.query('BEGIN');
+    const result = await dbClient.query(
+      `INSERT INTO pregnant_documents (
+         pregnant_id, document_name, document_type, file_path,
+         encryption_key_version, file_encryption_version
+       ) VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING *`,
+      [
+        pregnant_id,
+        encryptedMetadata.document_name,
+        encryptedMetadata.document_type,
+        storedPath,
+        cryptoService.getCurrentVersion(),
+        cryptoService.getCurrentVersion(),
+      ]
+    );
+    await dbClient.query('COMMIT');
+    committed = true;
 
-    res.status(201).json({
-      message: 'Documento enviado e associado com sucesso! Extração de texto iniciada.',
-      document: result.rows[0],
+    if (process.env.DISABLE_DOCUMENT_EXTRACTION_QUEUE !== 'true') {
+      enqueueDocumentTextExtraction(result.rows[0].id);
+    }
+    return res.status(201).json({
+      message: 'Documento enviado com seguranca; extracao de texto iniciada',
+      document: sanitizeDocument(result.rows[0]),
     });
-  } catch (err) {
-    cleanupUploadedFile(req);
-    res.status(500).json({ error: err.message });
+  } catch (error) {
+    if (dbClient && !committed) {
+      try {
+        await dbClient.query('ROLLBACK');
+      } catch (_) {
+        // Ignore rollback errors.
+      }
+    }
+    await cleanupUploadedFile(req);
+    if (!committed) await removeFileIfExists(storedPath);
+    logger.error('Erro ao enviar documento', { details: error.message });
+    return res.status(500).json({ error: 'Erro ao enviar documento' });
+  } finally {
+    if (dbClient) dbClient.release();
   }
 };
 
-/**
- * Função 2
- * Lista todos os documentos associados a uma gestante.
- * 
- * Parâmetros:
- *  - req[Object]: Requisição contendo `query.pregnant_id` (ID da gestante).
- *  - res[Object]: Resposta HTTP.
- * 
- * Retorno:
- *  - [JSON]: Lista de documentos cadastrados.
- */
 const getDocuments = async (req, res) => {
   const { pregnant_id } = req.query;
-
   if (!pregnant_id) {
-    return res.status(400).json({ error: 'Parâmetro pregnant_id é obrigatório' });
+    return res.status(400).json({ error: 'pregnant_id e obrigatorio' });
   }
   try {
-    const canAccess = await ensureCanAccessPregnant(req, res, pregnant_id);
-    if (!canAccess) return;
-
+    if (!(await ensureCanAccessPregnant(req, res, pregnant_id))) return;
     const result = await client.query(
-      'SELECT * FROM pregnant_documents WHERE pregnant_id = $1',
+      `SELECT * FROM pregnant_documents
+        WHERE pregnant_id = $1 ORDER BY uploaded_at DESC`,
       [pregnant_id]
     );
-    res.json(result.rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    return res.json(result.rows.map(sanitizeDocument));
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
   }
 };
 
-/**
- * Função 3
- * Retorna um documento específico pelo ID.
- * 
- * Parâmetros:
- *  - req[Object]: Requisição contendo `params.id` (ID do documento).
- *  - res[Object]: Resposta HTTP.
- * 
- * Retorno:
- *  - [JSON]: Documento correspondente ao ID informado.
- */
 const getDocumentById = async (req, res) => {
-  const { id } = req.params;
-
   try {
-    const document = await findDocumentById(id);
-
+    const document = await findDocumentById(req.params.id);
     if (!document) {
-      return res.status(404).json({ error: 'Documento não encontrado.' });
+      return res.status(404).json({ error: 'Documento nao encontrado' });
     }
-
-    const canAccess = await ensureCanAccessPregnant(req, res, document.pregnant_id);
-    if (!canAccess) return;
-
-    res.json(document);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    if (!(await ensureCanAccessPregnant(req, res, document.pregnant_id))) return;
+    return res.json(sanitizeDocument(document));
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
   }
 };
 
-/**
- * Função 4
- * Baixa o arquivo físico de um documento, após validar o acesso ao prontuário.
- */
 const downloadDocument = async (req, res) => {
-  const { id } = req.params;
-
   try {
-    const document = await findDocumentById(id);
-
-    if (!document) {
-      return res.status(404).json({ error: 'Documento não encontrado.' });
+    const storedDocument = await findDocumentById(req.params.id);
+    if (!storedDocument) {
+      return res.status(404).json({ error: 'Documento nao encontrado' });
     }
+    if (!(await ensureCanAccessPregnant(
+      req,
+      res,
+      storedDocument.pregnant_id
+    ))) return;
 
-    const canAccess = await ensureCanAccessPregnant(req, res, document.pregnant_id);
-    if (!canAccess) return;
-
-    if (!document.file_path || !fs.existsSync(document.file_path)) {
-      return res.status(404).json({ error: 'Arquivo do documento não encontrado.' });
+    const document = decryptDocument(storedDocument);
+    const buffer = await fileCryptoService.readDecryptedFile(
+      storedDocument.file_path,
+      { pregnantId: storedDocument.pregnant_id }
+    );
+    res.attachment(document.document_name || `documento-${document.id}`);
+    res.type(document.document_type || 'application/octet-stream');
+    return res.send(buffer);
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return res.status(404).json({ error: 'Arquivo do documento nao encontrado' });
     }
-
-    res.download(document.file_path, document.document_name);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    logger.error('Erro ao baixar documento', { details: error.message });
+    return res.status(500).json({ error: 'Erro ao baixar documento' });
   }
 };
 
-/**
- * Função 5
- * Exclui um documento e o arquivo físico associado.
- * 
- * Parâmetros:
- *  - req[Object]: Requisição contendo `params.id` (ID do documento).
- *  - res[Object]: Resposta HTTP.
- * 
- * Retorno:
- *  - [JSON]: Mensagem de confirmação da exclusão.
- */
 const deleteDocument = async (req, res) => {
-  const { id } = req.params;
+  let dbClient;
+  let tombstonePath;
+  let originalPath;
+  let committed = false;
 
   try {
-    const doc = await findDocumentById(id);
+    const document = await findDocumentById(req.params.id);
+    if (!document) {
+      return res.status(404).json({ error: 'Documento nao encontrado' });
+    }
+    if (!(await ensureCanAccessPregnant(req, res, document.pregnant_id))) return;
 
-    if (!doc) {
-      return res.status(404).json({ error: 'Documento não encontrado.' });
+    originalPath = document.file_path;
+    if (originalPath) {
+      tombstonePath = `${originalPath}.delete-${crypto.randomUUID()}`;
+      try {
+        await fs.rename(originalPath, tombstonePath);
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+        tombstonePath = null;
+      }
     }
 
-    const canAccess = await ensureCanAccessPregnant(req, res, doc.pregnant_id);
-    if (!canAccess) return;
-
-    removeFileIfExists(doc.file_path);
-
-    await client.query('DELETE FROM pregnant_documents WHERE id = $1', [id]);
-
-    res.json({ message: 'Documento removido com sucesso.' });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    dbClient = await client.connect();
+    await dbClient.query('BEGIN');
+    await dbClient.query(
+      'DELETE FROM pregnant_documents WHERE id = $1',
+      [req.params.id]
+    );
+    await dbClient.query('COMMIT');
+    committed = true;
+    try {
+      await removeFileIfExists(tombstonePath);
+    } catch (error) {
+      logger.error('Documento removido, mas limpeza do arquivo falhou', {
+        details: error.message,
+        tombstonePath,
+      });
+    }
+    return res.json({ message: 'Documento removido com sucesso' });
+  } catch (error) {
+    if (dbClient && !committed) {
+      try {
+        await dbClient.query('ROLLBACK');
+      } catch (_) {
+        // Ignore rollback errors.
+      }
+    }
+    if (!committed && tombstonePath && originalPath) {
+      try {
+        await fs.rename(tombstonePath, originalPath);
+      } catch (_) {
+        // Preserve the original failure for logging.
+      }
+    }
+    logger.error('Erro ao remover documento', { details: error.message });
+    return res.status(500).json({ error: 'Erro ao remover documento' });
+  } finally {
+    if (dbClient) dbClient.release();
   }
 };
 
-/**
- * Função 6
- * Atualiza as informações de um documento existente.
- * 
- * Parâmetros:
- *  - req[Object]: Requisição contendo `params.id` (ID do documento) e `body` (dados para atualização).
- *  - res[Object]: Resposta HTTP.
- * 
- * Retorno:
- *  - [JSON]: Documento atualizado.
- */
 const updateDocument = async (req, res) => {
   try {
     const document = await findDocumentById(req.params.id);
-    if (!document) return res.status(404).send('Documento não encontrado');
+    if (!document) return res.status(404).send('Documento nao encontrado');
+    if (!(await ensureCanAccessPregnant(req, res, document.pregnant_id))) return;
 
-    const canAccess = await ensureCanAccessPregnant(req, res, document.pregnant_id);
-    if (!canAccess) return;
-
-    const entries = Object.entries(req.body).filter(([field, value]) => (
-      ALLOWED_DOCUMENT_UPDATE_FIELDS.includes(field) &&
-      value !== undefined
-    ));
-
-    if (entries.length === 0) {
-      return res.status(400).json({ error: 'Nenhum campo válido para atualizar.' });
+    const updateData = Object.fromEntries(
+      Object.entries(req.body || {}).filter(
+        ([field, value]) => ALLOWED_DOCUMENT_UPDATE_FIELDS.includes(field) &&
+          value !== undefined
+      )
+    );
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({
+        error: 'Nenhum campo valido para atualizar',
+      });
     }
-
+    const encrypted = cryptoService.encryptRecord(
+      updateData,
+      'pregnant_documents'
+    );
+    encrypted.encryption_key_version = cryptoService.getCurrentVersion();
+    const entries = Object.entries(encrypted);
     const setClause = entries
       .map(([field], index) => `${field} = $${index + 1}`)
       .join(', ');
-    const values = entries.map(([, value]) => value);
-
     const result = await client.query(
-      `
-      UPDATE pregnant_documents
-      SET ${setClause}, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $${values.length + 1}
-      RETURNING *
-      `,
-      [...values, req.params.id]
+      `UPDATE pregnant_documents
+          SET ${setClause}, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $${entries.length + 1}
+        RETURNING *`,
+      [...entries.map(([, value]) => value), req.params.id]
     );
-
-    const updatedDoc = result.rows[0];
-    res.json(updatedDoc);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    return res.json(sanitizeDocument(result.rows[0]));
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
   }
 };
 
-/**
- * Função 7
- * Retorna apenas o texto extraído e os metadados do processamento de um documento.
- */
 const getDocumentExtractedText = async (req, res) => {
-  const { id } = req.params;
-
   try {
-    const document = await findDocumentById(id);
-
-    if (!document) {
-      return res.status(404).json({ error: 'Documento não encontrado.' });
+    const storedDocument = await findDocumentById(req.params.id);
+    if (!storedDocument) {
+      return res.status(404).json({ error: 'Documento nao encontrado' });
     }
-
-    const canAccess = await ensureCanAccessPregnant(req, res, document.pregnant_id);
-    if (!canAccess) return;
+    if (!(await ensureCanAccessPregnant(
+      req,
+      res,
+      storedDocument.pregnant_id
+    ))) return;
+    const document = decryptDocument(storedDocument);
 
     if (document.extraction_status !== 'done') {
       return res.status(202).json({
@@ -331,8 +341,7 @@ const getDocumentExtractedText = async (req, res) => {
         extraction_error: document.extraction_error,
       });
     }
-
-    res.json({
+    return res.json({
       document_id: document.id,
       extraction_status: document.extraction_status,
       extraction_method: document.extraction_method,
@@ -342,48 +351,43 @@ const getDocumentExtractedText = async (req, res) => {
       extracted_at: document.extracted_at,
       extracted_text: document.extracted_text,
     });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
   }
 };
 
-/**
- * Função 8
- * Reenvia um documento já salvo para o worker de extração de texto.
- */
 const retryDocumentTextExtraction = async (req, res) => {
-  const { id } = req.params;
-
   try {
-    const document = await findDocumentById(id);
-
+    const document = await findDocumentById(req.params.id);
     if (!document) {
-      return res.status(404).json({ error: 'Documento não encontrado.' });
+      return res.status(404).json({ error: 'Documento nao encontrado' });
     }
-
-    const canAccess = await ensureCanAccessPregnant(req, res, document.pregnant_id);
-    if (!canAccess) return;
-
-    processDocumentTextExtraction(document.id).catch((err) => {
-      console.error(`Erro inesperado ao reprocessar documento ${document.id}:`, err);
+    if (!(await ensureCanAccessPregnant(req, res, document.pregnant_id))) return;
+    processDocumentTextExtraction(document.id).catch((error) => {
+      logger.error('Erro inesperado ao reprocessar documento', {
+        details: error.message,
+        documentId: document.id,
+      });
     });
-
-    res.status(202).json({
-      message: 'Documento enviado para reprocessamento de texto.',
+    return res.status(202).json({
+      message: 'Documento enviado para reprocessamento de texto',
       document_id: document.id,
     });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
   }
 };
 
 module.exports = {
-  uploadDocument,
-  getDocuments,
-  getDocumentById,
-  downloadDocument,
   deleteDocument,
-  updateDocument,
+  downloadDocument,
+  ensureCanAccessPregnant,
+  findDocumentById,
+  getDocumentById,
   getDocumentExtractedText,
+  getDocuments,
   retryDocumentTextExtraction,
+  sanitizeDocument,
+  updateDocument,
+  uploadDocument,
 };

@@ -21,13 +21,16 @@ const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
 const { authenticateToken, requireRole } = require('../middlewares/auth');
+const { requireUserAccess } = require('../middlewares/userAccess');
+const { createAuthLimiters } = require('../middlewares/authRateLimit');
+const { loginLimiter, registerLimiter } = createAuthLimiters();
 
-router.post('/', userController.createUser);
-router.post('/login', userController.loginUser);
+router.post('/', registerLimiter, userController.createUser);
+router.post('/login', loginLimiter, userController.loginUser);
 
 router.get('/', authenticateToken, requireRole('admin'), userController.getUsers);
-router.get('/:id', authenticateToken, userController.getUserById);
-router.put('/:id', authenticateToken, userController.updateUser);
+router.get('/:id', authenticateToken, requireUserAccess, userController.getUserById);
+router.put('/:id', authenticateToken, requireUserAccess, userController.updateUser);
 router.delete('/:id', authenticateToken, requireRole('admin'), userController.deleteUser);
 
 module.exports = router;

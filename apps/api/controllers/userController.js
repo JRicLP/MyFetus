@@ -1,216 +1,312 @@
-/**
- * Controlador responsável por gerenciar usuários do sistema.
- * Inclui funções para criação, listagem, consulta, atualização, exclusão e autenticação de usuários.
- */
-const client = require('../backend');
-const updateEntity = require('../utils/updateEntity');
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const client = require('../backend');
+const cryptoService = require('../services/cryptoService');
+const {
+  hashEmail,
+  normalizeEmail,
+} = require('../services/emailLookupService');
+const logger = require('../utils/logger');
+const updateEntity = require('../utils/updateEntity');
+const {
+  PUBLIC_REGISTRATION_ROLE,
+  VALID_ROLES,
+  getAllowedUserUpdateFields,
+} = require('../utils/userPolicy');
 
-const SALT_ROUNDS = 10
+const SALT_ROUNDS = 10;
 
-// Função de Sanitização de usuário:
 function sanitizeUser(user) {
   if (!user) return null;
-
-  const { password, ...safeUser } = user;
+  const {
+    password,
+    email_lookup_hash,
+    encryption_key_version,
+    ...safeUser
+  } = user;
   return safeUser;
 }
 
-// TODO: validação
-/**
- * Função 1
- * Cria um novo usuário com senha criptografada.
- * 
- * Parâmetros:
- *  - req[Object]: Requisição contendo `body` com os campos (name, email, password, birthdate, is_active, role).
- *  - res[Object]: Resposta HTTP.
- * 
- * Retorno:
- *  - [JSON]: Usuário criado com sucesso.
- */
+function decryptUser(user) {
+  return user ? cryptoService.decryptRecord(user, 'users') : null;
+}
+
+async function migrateLegacyUser(dbClient, row, normalizedEmail, lookupHash) {
+  const encrypted = cryptoService.encryptRecord(
+    {
+      name: row.name,
+      email: normalizedEmail,
+      birthdate: row.birthdate,
+    },
+    'users'
+  );
+
+  const result = await dbClient.query(
+    `UPDATE users
+        SET name = $1,
+            email = $2,
+            birthdate = $3,
+            email_lookup_hash = $4,
+            encryption_key_version = $5,
+            updated_at = CURRENT_TIMESTAMP
+      WHERE id = $6
+      RETURNING *`,
+    [
+      encrypted.name,
+      encrypted.email,
+      encrypted.birthdate,
+      lookupHash,
+      cryptoService.getCurrentVersion(),
+      row.id,
+    ]
+  );
+
+  return { ...result.rows[0], pregnant_id: row.pregnant_id };
+}
+
+async function findUserByEmail(email) {
+  const normalizedEmail = normalizeEmail(email);
+  const lookupHash = hashEmail(normalizedEmail);
+  const dbClient = await client.connect();
+
+  try {
+    const indexed = await dbClient.query(
+      `SELECT u.*, p.id AS pregnant_id
+         FROM users u
+         LEFT JOIN pregnants p ON p.user_id = u.id
+        WHERE u.email_lookup_hash = $1
+        LIMIT 1`,
+      [lookupHash]
+    );
+    if (indexed.rows[0]) return indexed.rows[0];
+
+    const legacy = await dbClient.query(
+      `SELECT u.*, p.id AS pregnant_id
+         FROM users u
+         LEFT JOIN pregnants p ON p.user_id = u.id
+        WHERE u.email_lookup_hash IS NULL`
+    );
+    const matched = legacy.rows.find((row) => {
+      const decrypted = decryptUser(row);
+      return normalizeEmail(decrypted.email) === normalizedEmail;
+    });
+    if (!matched) return null;
+
+    await dbClient.query('BEGIN');
+    const migrated = await migrateLegacyUser(
+      dbClient,
+      matched,
+      normalizedEmail,
+      lookupHash
+    );
+    await dbClient.query('COMMIT');
+    return migrated;
+  } catch (error) {
+    try {
+      await dbClient.query('ROLLBACK');
+    } catch (_) {
+      // Ignore rollback errors when no transaction was started.
+    }
+    throw error;
+  } finally {
+    dbClient.release();
+  }
+}
+
 const createUser = async (req, res) => {
-  const { name, email, password, birthdate, is_active = true } = req.body;
-  const role = req.body.role || 'gestante';
+  const { name, email, password, birthdate } = req.body || {};
+  if (
+    typeof name !== 'string' ||
+    !name.trim() ||
+    typeof email !== 'string' ||
+    !email.trim() ||
+    typeof password !== 'string' ||
+    password.length < 8 ||
+    typeof birthdate !== 'string' ||
+    !birthdate
+  ) {
+    return res.status(400).json({
+      error: 'Nome, email, data de nascimento e senha de ao menos 8 caracteres sao obrigatorios',
+    });
+  }
+
   let dbClient;
   try {
+    const normalizedEmail = normalizeEmail(email);
+    const encrypted = cryptoService.encryptRecord(
+      { name: name.trim(), email: normalizedEmail, birthdate },
+      'users'
+    );
+    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+
     dbClient = await client.connect();
     await dbClient.query('BEGIN');
-
-    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
     const result = await dbClient.query(
-      `
-      INSERT INTO users (name, email, password, birthdate, is_active, role)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id, name, email, birthdate, is_active, role, created_at, updated_at
-      `,
-      [name, email, hashedPassword, birthdate, is_active, role]
+      `INSERT INTO users (
+         name, email, password, birthdate, is_active, role,
+         email_lookup_hash, encryption_key_version
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING *`,
+      [
+        encrypted.name,
+        encrypted.email,
+        hashedPassword,
+        encrypted.birthdate,
+        true,
+        PUBLIC_REGISTRATION_ROLE,
+        hashEmail(normalizedEmail),
+        cryptoService.getCurrentVersion(),
+      ]
     );
-
-    const createdUser = result.rows[0];
-
-    // Regra do app: usuários (role='user') representam pacientes e precisam existir em `pregnants`.
-    if (role === 'gestante' || role === 'user') {
-      await dbClient.query('INSERT INTO pregnants (user_id) VALUES ($1)', [createdUser.id]);
-    }
-
+    await dbClient.query('INSERT INTO pregnants (user_id) VALUES ($1)', [
+      result.rows[0].id,
+    ]);
     await dbClient.query('COMMIT');
-    res.status(201).json(createdUser);
-  } catch (err) {
-    try {
-      if (dbClient) await dbClient.query('ROLLBACK');
-    } catch (_) {
-      // ignore rollback errors
+
+    return res.status(201).json(sanitizeUser(decryptUser(result.rows[0])));
+  } catch (error) {
+    if (dbClient) {
+      try {
+        await dbClient.query('ROLLBACK');
+      } catch (_) {
+        // Ignore rollback errors.
+      }
     }
-    res.status(500).json({ error: err.message });
+    logger.error('Erro ao criar usuario', {
+      details: error.message,
+      email,
+    });
+    if (error.code === '23505') {
+      return res.status(409).json({ error: 'Email ja cadastrado' });
+    }
+    return res.status(500).json({ error: 'Erro ao criar usuario' });
   } finally {
     if (dbClient) dbClient.release();
   }
 };
 
-/**
- * Função 2
- * Retorna todos os usuários cadastrados.
- * 
- * Parâmetros:
- *  - req[Object]: Requisição HTTP.
- *  - res[Object]: Resposta HTTP.
- * 
- * Retorno:
- *  - [JSON]: Lista de usuários.
- */
 const getUsers = async (req, res) => {
   try {
-    const result = await client.query(`
-      SELECT id, name, email, birthdate, is_active, role, created_at, updated_at
-      FROM users
-      ORDER BY id ASC
-    `);
-    res.json(result.rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    const result = await client.query(
+      `SELECT id, name, email, birthdate, is_active, role,
+              created_at, updated_at, encryption_key_version
+         FROM users
+        ORDER BY id ASC`
+    );
+    return res.json(result.rows.map((row) => sanitizeUser(decryptUser(row))));
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
   }
 };
 
-/**
- * Função 3
- * Retorna um usuário específico pelo ID.
- * 
- * Parâmetros:
- *  - req[Object]: Requisição contendo `params.id` (ID do usuário).
- *  - res[Object]: Resposta HTTP.
- * 
- * Retorno:
- *  - [JSON]: Dados do usuário encontrado.
- */
 const getUserById = async (req, res) => {
   try {
     const result = await client.query(
-      `
-      SELECT id, name, email, birthdate, is_active, role, created_at, updated_at
-      FROM users
-      WHERE id = $1
-      `,
-     [req.params.id]
+      `SELECT id, name, email, birthdate, is_active, role,
+              created_at, updated_at, encryption_key_version
+         FROM users
+        WHERE id = $1`,
+      [req.params.id]
     );
-    if (result.rows.length === 0) return res.status(404).send('Usuário não encontrado');
-    res.json(result.rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    if (!result.rows[0]) return res.status(404).send('Usuario nao encontrado');
+    return res.json(sanitizeUser(decryptUser(result.rows[0])));
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
   }
 };
 
-/**
- * Função 4
- * Atualiza os dados de um usuário existente, incluindo criptografia da senha se alterada.
- * 
- * Parâmetros:
- *  - req[Object]: Requisição contendo `params.id` (ID do usuário) e `body` (campos a atualizar).
- *  - res[Object]: Resposta HTTP.
- * 
- * Retorno:
- *  - [JSON]: Usuário atualizado.
- */
 const updateUser = async (req, res) => {
+  const targetUserId = req.targetUserId || Number(req.params.id);
   try {
-    const { password, ...rest } = req.body;
-    let updateData = rest;
-
-    if (password) {
-      const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
-      updateData.password = hashedPassword;
+    const allowedFields = getAllowedUserUpdateFields(req.user, targetUserId);
+    const updateData = Object.fromEntries(
+      Object.entries(req.body || {}).filter(
+        ([field, value]) => allowedFields.includes(field) && value !== undefined
+      )
+    );
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ error: 'Nenhum campo valido para atualizar' });
+    }
+    if (updateData.role && !VALID_ROLES.has(updateData.role)) {
+      return res.status(400).json({ error: 'Perfil de usuario invalido' });
+    }
+    if (updateData.password) {
+      if (typeof updateData.password !== 'string' || updateData.password.length < 8) {
+        return res.status(400).json({ error: 'A senha deve ter ao menos 8 caracteres' });
+      }
+      updateData.password = await bcrypt.hash(updateData.password, SALT_ROUNDS);
+    }
+    if (updateData.email !== undefined) {
+      updateData.email = normalizeEmail(updateData.email);
+      updateData.email_lookup_hash = hashEmail(updateData.email);
     }
 
-    const updatedUser = await updateEntity('users', req.params.id, updateData);
-    if (!updatedUser) return res.status(404).send('Usuário não encontrado');
-    res.json(sanitizeUser(updatedUser));
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    const encrypted = cryptoService.encryptRecord(updateData, 'users');
+    if (['name', 'email', 'birthdate'].some((field) => field in encrypted)) {
+      encrypted.encryption_key_version = cryptoService.getCurrentVersion();
+    }
+    const internalAllowedFields = [
+      ...allowedFields,
+      'email_lookup_hash',
+      'encryption_key_version',
+    ];
+    const updated = await updateEntity(
+      'users',
+      targetUserId,
+      encrypted,
+      internalAllowedFields
+    );
+    if (!updated) return res.status(404).send('Usuario nao encontrado');
+    return res.json(sanitizeUser(decryptUser(updated)));
+  } catch (error) {
+    logger.error('Erro ao atualizar usuario', {
+      details: error.message,
+      targetUserId,
+    });
+    if (error.code === '23505') {
+      return res.status(409).json({ error: 'Email ja cadastrado' });
+    }
+    return res.status(500).json({ error: 'Erro ao atualizar usuario' });
   }
 };
 
-/**
- * Função 5
- * Exclui um usuário do sistema.
- * 
- * Parâmetros:
- *  - req[Object]: Requisição contendo `params.id` (ID do usuário).
- *  - res[Object]: Resposta HTTP.
- * 
- * Retorno:
- *  - [string]: Mensagem de confirmação da exclusão.
- */
 const deleteUser = async (req, res) => {
   try {
-    const result = await client.query('DELETE FROM users WHERE id = $1 RETURNING *', [req.params.id]);
-    if (result.rows.length === 0) return res.status(404).send('Usuário não encontrado');
-    res.send('Usuário deletado com sucesso');
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    const result = await client.query(
+      'DELETE FROM users WHERE id = $1 RETURNING id',
+      [req.params.id]
+    );
+    if (!result.rows[0]) return res.status(404).send('Usuario nao encontrado');
+    return res.send('Usuario deletado com sucesso');
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
   }
 };
 
-/**
- * Função 6
- * Realiza o login de um usuário validando email e senha.
- * 
- * Parâmetros:
- *  - req[Object]: Requisição contendo `body.email` e `body.password`.
- *  - res[Object]: Resposta HTTP.
- * 
- * Retorno:
- *  - [JSON]: Mensagem de sucesso e dados do usuário autenticado.
- */
 const loginUser = async (req, res) => {
-  const { email, password } = req.body;
-  const jwt = require('jsonwebtoken');
+  const { email, password } = req.body || {};
+  if (typeof email !== 'string' || typeof password !== 'string') {
+    return res.status(400).json({ error: 'Email e senha sao obrigatorios' });
+  }
 
   try {
-    const result = await client.query(
-      `SELECT u.*, p.id AS pregnant_id
-         FROM users u
-         LEFT JOIN pregnants p ON p.user_id = u.id
-        WHERE u.email = $1`,
-      [email]
-    );
-
-    const user = result.rows[0];
-
-    if (result.rows.length === 0 || !(await bcrypt.compare(password, user.password))) {
-      return res.status(401).json({ error: 'Login ou senha inválidos' });
+    const storedUser = await findUserByEmail(email);
+    if (
+      !storedUser ||
+      !storedUser.is_active ||
+      !(await bcrypt.compare(password, storedUser.password))
+    ) {
+      return res.status(401).json({ error: 'Login ou senha invalidos' });
     }
 
+    const user = decryptUser(storedUser);
     const token = jwt.sign(
-      {
-        id: user.id,
-        role: user.role,
-      },
+      { id: user.id, role: user.role },
       process.env.JWT_SECRET,
-      {
-        expiresIn: process.env.JWT_EXPIRES_IN || '8h',
-      }
+      { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
     );
-
-    res.status(200).json({
+    return res.status(200).json({
       message: 'Login bem-sucedido',
       token,
       user: {
@@ -221,8 +317,9 @@ const loginUser = async (req, res) => {
         pregnant_id: user.pregnant_id || null,
       },
     });
-  } catch (err) {
-    res.status(500).json({ error: 'Erro no servidor' });
+  } catch (error) {
+    logger.error('Erro no login', { details: error.message });
+    return res.status(500).json({ error: 'Erro no servidor' });
   }
 };
 

@@ -29,18 +29,27 @@ require('dotenv').config();
 const { Pool } = require('pg');
 const logger = require('./utils/logger');
 
+function requireDatabaseEnv(name) {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`${name} nao configurada`);
+  }
+  return value;
+}
+
 // Conexão ao banco de dados (usando Pool para gerenciar conexões)
 const client = new Pool({
-  user: process.env.PG_USER || 'myuser',
-  host: process.env.PG_HOST || 'myfetus-db', // mesmo nome do container
-  database: process.env.PG_DATABASE || 'mydatabase',
-  password: process.env.PG_PASSWORD || 'mypassword',
+  user: requireDatabaseEnv('PG_USER'),
+  host: requireDatabaseEnv('PG_HOST'),
+  database: requireDatabaseEnv('PG_DATABASE'),
+  password: requireDatabaseEnv('PG_PASSWORD'),
   port: process.env.PG_PORT ? parseInt(process.env.PG_PORT) : 5432,
 });
 
 // Teste inicial de conexão
 client.connect()
-  .then(() => {
+  .then((connection) => {
+    connection.release();
     logger.info('✅ Conectado ao PostgreSQL com sucesso!');
     
     // Inicializa o catálogo LOINC após a conexão estar pronta

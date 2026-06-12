@@ -78,7 +78,10 @@ export default function LoginScreen() {
   };
 
   const handleCreateDoctorAccount = () => {
-    router.push('/Cadastro?role=medico');
+    Alert.alert(
+      'Cadastro medico',
+      'Contas de medico devem ser criadas por um administrador.'
+    );
   };
 
   return (

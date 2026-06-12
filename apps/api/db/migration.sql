@@ -13,6 +13,10 @@
 ALTER TABLE users
   DROP CONSTRAINT IF EXISTS users_role_check;
 
+UPDATE users
+SET role = 'gestante'
+WHERE role = 'user';
+
 ALTER TABLE users
   ADD CONSTRAINT users_role_check
   CHECK (role IN ('gestante', 'medico', 'admin'));
@@ -23,6 +27,14 @@ ALTER TABLE users
 -- 2. Adiciona updated_at nas tabelas que faltavam
 --    (pregnancies, pregnancy_events, pregnant_documents, medidas_fetais)
 --    Necessário para que o motor de sync saiba o que mudou
+
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = CURRENT_TIMESTAMP;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
 ALTER TABLE pregnancies
   ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;

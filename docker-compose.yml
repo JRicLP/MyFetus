@@ -3,19 +3,25 @@ services:
     image: postgres:15-alpine
     container_name: myfetus-db
     restart: always
+    env_file:
+      - .env
     environment:
-      POSTGRES_USER: myuser
-      POSTGRES_PASSWORD: mypassword
-      POSTGRES_DB: mydatabase
+      POSTGRES_USER: ${PG_USER:?PG_USER nao configurada}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:?PG_PASSWORD nao configurada}
+      POSTGRES_DB: ${PG_DATABASE:?PG_DATABASE nao configurada}
     volumes:
       - db_data:/var/lib/postgresql/data
       - ./apps/api/db/create_tables.sql:/docker-entrypoint-initdb.d/1_create_tables.sql:ro
       - ./apps/api/db/triggers.sql:/docker-entrypoint-initdb.d/2_triggers.sql:ro
       - ./apps/api/db/migration.sql:/docker-entrypoint-initdb.d/3_migration.sql:ro
+      - ./apps/api/db/doctor_patient_links.sql:/docker-entrypoint-initdb.d/4_doctor_patient_links.sql:ro
+      - ./apps/api/db/migration_security_baseline.sql:/docker-entrypoint-initdb.d/5_security_baseline.sql:ro
+      - ./apps/api/db/migration_aes_encryption.sql:/docker-entrypoint-initdb.d/6_aes_encryption.sql:ro
+      - ./apps/api/db/migration_document_security.sql:/docker-entrypoint-initdb.d/7_document_security.sql:ro
     ports:
       - "5434:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U myuser -d mydatabase"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -30,22 +36,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    env_file:
+      - .env
     environment:
-      PG_USER: myuser
-      PG_PASSWORD: mypassword
-      PG_DATABASE: mydatabase
       PG_HOST: db
       PG_PORT: 5432
-      PORT: 3000
-
-    # teste JWT e CORS
-      JWT_SECRET: ytrAVJwhS6LYCeYdMyFs4UriDchXTSNovE6E4DLgCR8Rba-0za4nQTmJpqZ5ujwa
-      JWT_EXPIRES_IN: 8h
-      CORS_ORIGIN: http://localhost:8081,http://localhost:19006,http://localhost:3000
-      OCR_LANGUAGES: por+eng
-      PDF_TEXT_MIN_LENGTH_FOR_OCR: 50
-      DOCUMENT_EXTRACTION_BATCH_SIZE: 5
-      DOCUMENT_EXTRACTION_INTERVAL_MS: 30000
 
     ports:
       - "3000:3000"

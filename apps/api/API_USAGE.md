@@ -13,11 +13,11 @@ docker compose up -d --build
 docker compose restart backend
 ```
 
-- Variáveis de ambiente (se rodar localmente sem Docker):
-  - `PG_USER` (default `myuser`)
-  - `PG_PASSWORD` (default `mypassword`)
-  - `PG_DATABASE` (default `mydatabase`)
-  - `PG_HOST` (default `myfetus-db`)
+- Variáveis de ambiente obrigatórias:
+  - `PG_USER`
+  - `PG_PASSWORD`
+  - `PG_DATABASE`
+  - `PG_HOST`
   - `PG_PORT` (default `5432`)
   - `PORT` (default `3000`)
   - `JWT_SECRET` (obrigatório para rotas autenticadas)
@@ -30,36 +30,30 @@ Observação: o servidor expõe `/api` como prefixo de todas as rotas.
 
 ### JWT de teste
 
-Para gerar um novo `JWT_SECRET` e imprimir um token de teste de `admin`, use o script abaixo dentro de `apps/api`:
+Para gerar um valor de `JWT_SECRET`, use:
 
 ```bash
-node ./scripts/rotate-jwt-secret-and-generate-token.js --dry-run
+npm run jwt:secret
 ```
 
-Para aplicar a troca no `docker-compose.yml` e reiniciar o backend, execute sem `--dry-run` e com `--restart`:
+Para rotacionar o segredo no `.env` local:
 
 ```bash
-node ./scripts/rotate-jwt-secret-and-generate-token.js --restart
+npm run jwt:rotate
 ```
 
-O script imprime:
-- o novo `JWT_SECRET`
-- o JWT de teste já assinado
-- um `curl` pronto para validar o endpoint interno `POST /api/internal/loinc/term`
+O comando não imprime o novo segredo. Tokens emitidos anteriormente deixam de
+ser válidos. Use `npm run jwt:rotate -- --restart` para também recriar o backend.
 
 ### JWT de teste sem rotacionar segredo
 
-Se você só quer gerar um token válido com o `JWT_SECRET` atual do `docker-compose.yml`, use este script:
+Para gerar um token válido com o `JWT_SECRET` atual do `.env`, use:
 
 ```bash
 npm run jwt:test-token
 ```
 
-Ele lê o segredo atual do `docker-compose.yml`, gera um JWT de `admin` com validade de 8 horas e imprime também um `curl` pronto para testar o endpoint interno de RAG:
-
-```bash
-POST /api/internal/rag/search
-```
+O comando imprime apenas um JWT de `admin` para desenvolvimento local.
 
 Use esse fluxo quando quiser apenas autenticar chamadas locais sem alterar a configuração do backend.
 
@@ -76,7 +70,7 @@ Authorization: Bearer <token-gerado>
 - Campo `role` em `users` aceita apenas: `gestante`, `medico`, `admin`.
 - Uploads de documentos usam `multer` e salvam arquivos em `uploads/`.
 - O script de testes está em `apps/api/test_api.sh` e verifica os principais endpoints.
-- O comando `npm run jwt:test-token` gera um JWT de teste a partir do `JWT_SECRET` já presente no `docker-compose.yml`, sem rotacionar segredo nem reiniciar o backend.
+- O comando `npm run jwt:test-token` usa o `JWT_SECRET` do `.env` sem rotacioná-lo.
 
 ---
 

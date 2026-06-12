@@ -38,8 +38,16 @@ const express = require('express');
 const cors = require('cors');
 const db = require('./backend');
 const logger = require('./utils/logger');
+const { getSecurityConfig, requireHttps } = require('./config/security');
 
 const app = express();
+const securityConfig = getSecurityConfig();
+
+if (securityConfig.trustProxy) {
+  app.set('trust proxy', securityConfig.trustProxy);
+}
+
+app.use(requireHttps(securityConfig));
 
 const allowedOrigins = (process.env.CORS_ORIGIN || [
   'http://localhost:8081',
