@@ -23,12 +23,12 @@ const userController = require('../controllers/userController');
 const { authenticateToken, requireRole } = require('../middlewares/auth');
 const { requireUserAccess } = require('../middlewares/userAccess');
 const { createAuthLimiters } = require('../middlewares/authRateLimit');
-const { loginLimiter, registerLimiter } = createAuthLimiters();
+const { loginLimiter, registerLimiter, adminReadLimiter } = createAuthLimiters();
 
 router.post('/', registerLimiter, userController.createUser);
 router.post('/login', loginLimiter, userController.loginUser);
 
-router.get('/', authenticateToken, requireRole('admin'), userController.getUsers);
+router.get('/', adminReadLimiter, authenticateToken, requireRole('admin'), userController.getUsers);
 router.get('/:id', authenticateToken, requireUserAccess, userController.getUserById);
 router.put('/:id', authenticateToken, requireUserAccess, userController.updateUser);
 router.delete('/:id', authenticateToken, requireRole('admin'), userController.deleteUser);
