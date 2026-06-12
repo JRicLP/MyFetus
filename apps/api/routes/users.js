@@ -29,7 +29,7 @@ router.post('/', registerLimiter, userController.createUser);
 router.post('/login', loginLimiter, userController.loginUser);
 
 router.get('/', adminReadLimiter, authenticateToken, requireRole('admin'), userController.getUsers);
-router.get('/:id', authenticateToken, requireUserAccess, userController.getUserById);
+router.get('/:id', adminReadLimiter, authenticateToken, requireUserAccess, userController.getUserById);
 router.put('/:id', registerLimiter, authenticateToken, requireUserAccess, userController.updateUser);
 router.delete('/:id', authenticateToken, requireRole('admin'), userController.deleteUser);
 
