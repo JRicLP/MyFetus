@@ -23,13 +23,20 @@ function getUploadedFile(req) {
 async function resolveSafeDeletionPath(filePath) {
   if (!filePath) return null;
 
-  const absolutePath = path.resolve(filePath);
-  let normalizedPath = absolutePath;
+  const candidatePath = path.resolve(UPLOAD_CLEANUP_ROOT, filePath);
+  const candidateRelativePath = path.relative(UPLOAD_CLEANUP_ROOT, candidatePath);
+  if (
+    !(candidateRelativePath === '' ||
+      (!candidateRelativePath.startsWith('..') && !path.isAbsolute(candidateRelativePath)))
+  ) {
+    return null;
+  }
 
+  let normalizedPath = candidatePath;
   try {
-    normalizedPath = await fs.realpath(absolutePath);
+    normalizedPath = await fs.realpath(candidatePath);
   } catch (err) {
-    // If the file does not exist, keep resolved absolute path for boundary check.
+    // If the file does not exist, keep resolved candidate path for boundary check.
   }
 
   const relativePath = path.relative(UPLOAD_CLEANUP_ROOT, normalizedPath);
