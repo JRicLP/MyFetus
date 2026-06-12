@@ -30,7 +30,7 @@ router.post('/login', loginLimiter, userController.loginUser);
 
 router.get('/', adminReadLimiter, authenticateToken, requireRole('admin'), userController.getUsers);
 router.get('/:id', authenticateToken, requireUserAccess, userController.getUserById);
-router.put('/:id', authenticateToken, requireUserAccess, userController.updateUser);
+router.put('/:id', registerLimiter, authenticateToken, requireUserAccess, userController.updateUser);
 router.delete('/:id', authenticateToken, requireRole('admin'), userController.deleteUser);
 
 module.exports = router;
