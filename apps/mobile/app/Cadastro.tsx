@@ -1,8 +1,7 @@
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image, ActivityIndicator } from 'react-native';
 import { useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
-// IMPORTANTE: Adicionado useLocalSearchParams
-import { useRouter, useLocalSearchParams } from 'expo-router'; 
+import { useRouter } from 'expo-router';
 import { apiUrl } from '../utils/api';
 
 export default function Cadastro() {
@@ -14,10 +13,6 @@ export default function Cadastro() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{[key: string]: string}>({});
   const router = useRouter();
-  
-  // Lê os parâmetros da URL ( role=admin)
-  const { role } = useLocalSearchParams();
-  const isMedico = role === 'admin';
 
   const validarEmail = (email: string) => {
     const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -37,7 +32,7 @@ export default function Cadastro() {
   };
 
   const validarSenha = (senha: string) => {
-    return senha.length >= 6;
+    return senha.length >= 8;
   };
 
   const validarFormulario = () => {
@@ -63,7 +58,7 @@ export default function Cadastro() {
     if (!senha) {
       novosErros.senha = 'Senha é obrigatória';
     } else if (!validarSenha(senha)) {
-      novosErros.senha = 'A senha deve ter pelo menos 6 caracteres';
+      novosErros.senha = 'A senha deve ter pelo menos 8 caracteres';
     }
 
     if (!confirmarSenha) {
@@ -104,13 +99,11 @@ export default function Cadastro() {
       const [dia, mes, ano] = dataNascimento.split('/');
       const dataFormatada = `${ano}-${mes}-${dia}`;
 
-      // Prepara o objeto de dados, incluindo a 'role'
       const dadosCadastro = {
         name: nome,
         email: email,
         password: senha,
-        birthdate: dataFormatada, // O campo é enviado sempre
-        role: isMedico ? 'medico' : 'gestante' // Define a role com base no parâmetro da URL
+        birthdate: dataFormatada,
       };
 
       const response = await fetch(apiUrl('/api/users'), { 
@@ -172,8 +165,7 @@ export default function Cadastro() {
           resizeMode="contain"
         />
         
-        {/* Título dinâmico */}
-        <Text style={styles.title}>{isMedico ? 'Cadastro Médico' : 'Crie sua Conta'}</Text>
+        <Text style={styles.title}>Crie sua Conta</Text>
         
         <TextInput
           placeholder="Nome"

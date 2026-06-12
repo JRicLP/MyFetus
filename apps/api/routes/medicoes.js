@@ -25,6 +25,7 @@ const express = require('express');
 const router = express.Router();
 const client = require('../backend');
 const logger = require('../utils/logger');
+const cryptoService = require('../services/cryptoService');
 const { authenticateToken, requireRole } = require('../middlewares/auth');
 
 // Rota POST para salvar medição
@@ -42,22 +43,36 @@ router.post('/', authenticateToken, requireRole('medico', 'admin'), async (req, 
     const comp_fetal_estimado_cm = 6.18 + 0.59 * comp_femur_mm;
 
     const insertQuery = `
-      INSERT INTO medidas_fetais (idade_gestacional_semanas, ccn, crl, dgn)
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO medidas_fetais (
+        idade_gestacional_semanas, ccn, crl, dgn, encryption_key_version
+      )
+      VALUES ($1, $2, $3, $4, $5)
       RETURNING *;
     `;
 
-    const result = await client.query(insertQuery, [
+    const encrypted = cryptoService.encryptRecord({
       idade_gestacional_semanas,
-      comp_fetal_estimado_cm,
-      comp_femur_mm,
-      0.0,
+      ccn: comp_fetal_estimado_cm,
+      crl: comp_femur_mm,
+      dgn: 0,
+    }, 'medidas_fetais');
+
+    const result = await client.query(insertQuery, [
+      encrypted.idade_gestacional_semanas,
+      encrypted.ccn,
+      encrypted.crl,
+      encrypted.dgn,
+      cryptoService.getCurrentVersion(),
     ]);
+    const savedMeasurement = cryptoService.decryptRecord(
+      result.rows[0],
+      'medidas_fetais'
+    );
 
     res.status(201).json({
       mensagem: 'Medição salva com sucesso!',
       medicao: {
-        ...result.rows[0],
+        ...savedMeasurement,
         comp_femur_mm,
         comp_fetal_estimado_cm,
       },
