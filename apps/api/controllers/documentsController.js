@@ -14,13 +14,42 @@ const ALLOWED_DOCUMENT_UPDATE_FIELDS = ['document_name', 'document_type'];
 const ENCRYPTED_STORAGE_DIR = path.resolve(
   process.env.DOCUMENT_STORAGE_DIR || 'uploads/encrypted'
 );
+const UPLOAD_CLEANUP_ROOT = path.resolve(process.env.DOCUMENT_STORAGE_DIR || 'uploads');
 
 function getUploadedFile(req) {
   return req.files?.file?.[0] || req.files?.document?.[0] || req.file || null;
 }
 
+async function resolveSafeDeletionPath(filePath) {
+  if (!filePath) return null;
+
+  const absolutePath = path.resolve(filePath);
+  let normalizedPath = absolutePath;
+
+  try {
+    normalizedPath = await fs.realpath(absolutePath);
+  } catch (err) {
+    // If the file does not exist, keep resolved absolute path for boundary check.
+  }
+
+  const relativePath = path.relative(UPLOAD_CLEANUP_ROOT, normalizedPath);
+  if (
+    relativePath === '' ||
+    (!relativePath.startsWith('..') && !path.isAbsolute(relativePath))
+  ) {
+    return normalizedPath;
+  }
+
+  return null;
+}
+
 async function removeFileIfExists(filePath) {
-  if (filePath) await fs.rm(filePath, { force: true });
+  const safePath = await resolveSafeDeletionPath(filePath);
+  if (!safePath) {
+    logger.warn('Skipping file cleanup outside allowed directory', { filePath });
+    return;
+  }
+  await fs.rm(safePath, { force: true });
 }
 
 async function cleanupUploadedFile(req) {
