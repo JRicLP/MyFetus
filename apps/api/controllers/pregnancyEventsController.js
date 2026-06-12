@@ -41,7 +41,7 @@ const createEvent = async (req, res) => {
 };
 
 const getEvents = async (req, res) => {
-  const { pregnancy_id } = req.query;
+  const { pregnancy_id } = req.body || {};
   if (!pregnancy_id) {
     return res.status(400).json({ error: 'O pregnancy_id e obrigatorio' });
   }
