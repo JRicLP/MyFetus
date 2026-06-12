@@ -28,9 +28,9 @@ const { loginLimiter, registerLimiter, adminReadLimiter } = createAuthLimiters()
 router.post('/', registerLimiter, userController.createUser);
 router.post('/login', loginLimiter, userController.loginUser);
 
-router.get('/', adminReadLimiter, authenticateToken, requireRole('admin'), userController.getUsers);
-router.get('/:id', adminReadLimiter, authenticateToken, requireUserAccess, userController.getUserById);
-router.put('/:id', registerLimiter, authenticateToken, requireUserAccess, userController.updateUser);
-router.delete('/:id', authenticateToken, requireRole('admin'), userController.deleteUser);
+router.get('/', authenticateToken, adminReadLimiter, requireRole('admin'), userController.getUsers);
+router.get('/:id', authenticateToken, adminReadLimiter, requireUserAccess, userController.getUserById);
+router.put('/:id', authenticateToken, adminReadLimiter, requireUserAccess, userController.updateUser);
+router.delete('/:id', authenticateToken, adminReadLimiter, requireRole('admin'), userController.deleteUser);
 
 module.exports = router;
