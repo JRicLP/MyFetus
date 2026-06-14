@@ -1,5 +1,7 @@
 const fs = require('fs');
 const client = require('../backend');
+const cryptoService = require('./cryptoService');
+const fileCryptoService = require('./fileCryptoService');
 const { extractDocumentText } = require('./pdfTextExtractor');
 
 const runningJobs = new Set();
@@ -28,6 +30,10 @@ async function markProcessing(documentId) {
 }
 
 async function markDone(documentId, extractionResult) {
+  const encrypted = cryptoService.encryptRecord({
+    extracted_text: extractionResult.text,
+    extraction_error: null,
+  }, 'pregnant_documents');
   await client.query(
     `
     UPDATE pregnant_documents
@@ -37,28 +43,35 @@ async function markDone(documentId, extractionResult) {
         extraction_confidence = $3,
         extraction_error = NULL,
         extracted_at = CURRENT_TIMESTAMP,
+        encryption_key_version = $4,
         updated_at = CURRENT_TIMESTAMP
-    WHERE id = $4
+    WHERE id = $5
     `,
     [
-      extractionResult.text,
+      encrypted.extracted_text,
       extractionResult.method,
       extractionResult.confidence,
+      cryptoService.getCurrentVersion(),
       documentId,
     ]
   );
 }
 
 async function markFailed(documentId, error) {
+  const encrypted = cryptoService.encryptRecord(
+    { extraction_error: error.message },
+    'pregnant_documents'
+  );
   await client.query(
     `
     UPDATE pregnant_documents
     SET extraction_status = 'failed',
         extraction_error = $1,
+        encryption_key_version = $2,
         updated_at = CURRENT_TIMESTAMP
-    WHERE id = $2
+    WHERE id = $3
     `,
-    [error.message, documentId]
+    [encrypted.extraction_error, cryptoService.getCurrentVersion(), documentId]
   );
 }
 
@@ -78,7 +91,18 @@ async function processDocumentTextExtraction(documentId) {
 
     await markProcessing(documentId);
 
-    const extractionResult = await extractDocumentText(document);
+    const decryptedDocument = cryptoService.decryptRecord(
+      document,
+      'pregnant_documents'
+    );
+    const fileBuffer = await fileCryptoService.readDecryptedFile(
+      document.file_path,
+      { pregnantId: document.pregnant_id }
+    );
+    const extractionResult = await extractDocumentText(
+      decryptedDocument,
+      { buffer: fileBuffer }
+    );
 
     await markDone(documentId, extractionResult);
   } catch (err) {
@@ -128,6 +152,8 @@ function startDocumentTextExtractionWorker({
 
 module.exports = {
   enqueueDocumentTextExtraction,
+  markDone,
+  markFailed,
   processDocumentTextExtraction,
   processPendingDocumentTextExtractions,
   startDocumentTextExtractionWorker,

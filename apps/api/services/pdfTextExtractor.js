@@ -119,8 +119,8 @@ async function extractTextWithOcr(buffer) {
   };
 }
 
-async function extractDocumentText(document) {
-  const buffer = await fs.readFile(document.file_path);
+async function extractDocumentText(document, options = {}) {
+  const buffer = options.buffer || await fs.readFile(document.file_path);
 
   if (!isPdfDocument(document)) {
     return {

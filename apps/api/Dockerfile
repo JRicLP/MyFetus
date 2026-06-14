@@ -1,9 +1,10 @@
-FROM node:20-alpine
+# Usa Debian Slim que possui glibc nativo, exigido pelo ONNX Runtime
+FROM node:20-slim
 
 WORKDIR /app
 
-# Instalar dependências do sistema (se necessário para pacotes nativos)
-RUN apk add --no-cache python3 make g++ bash git
+# Instalar dependências do sistema usando apt-get (Debian) em vez de apk (Alpine)
+RUN apt-get update && apt-get install -y python3 make g++ bash git && rm -rf /var/lib/apt/lists/*
 
 # Copiar apenas os arquivos de dependência
 COPY package.json yarn.lock* ./

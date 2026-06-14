@@ -33,10 +33,10 @@ No diretório raiz do projeto (`myFetus`), crie um arquivo chamado `.env` com
 as seguintes variáveis de ambiente, substituindo pelos seus dados:
 
 ```env
-PG_USER=myuser
+PG_USER=myfetus_app
 PG_HOST=localhost
-PG_DATABASE=mydatabase
-PG_PASSWORD=mypassword
+PG_DATABASE=myfetus
+PG_PASSWORD=gere_uma_senha_forte
 PG_PORT=5432
 ```
 
