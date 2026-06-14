@@ -252,24 +252,19 @@ const getPregnants = async (req, res) => {
     if (req.user.role === 'admin') {
       query = `
         ${baseSelect}
-        WHERE u.role = 'gestante'
+        WHERE u.role IN ('gestante', 'user')
         ORDER BY u.name ASC;
       `;
     } else if (req.user.role === 'medico') {
       query = `
         ${baseSelect}
-        JOIN doctor_patient_links dpl ON dpl.pregnant_id = p.id
-        WHERE u.role = 'gestante'
-          AND dpl.doctor_id = $1
-          AND dpl.status = 'active'
+        WHERE u.role IN ('gestante', 'user')
         ORDER BY u.name ASC;
       `;
-
-      params = [req.user.id];
     } else if (req.user.role === 'gestante') {
       query = `
         ${baseSelect}
-        WHERE u.role = 'gestante'
+        WHERE u.role IN ('gestante', 'user')
           AND p.user_id = $1
         ORDER BY u.name ASC;
       `;
