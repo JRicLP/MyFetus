@@ -86,6 +86,7 @@ const fetalMeasurementsRoutes = require('./routes/medicoes');
 const syncRoutes = require('./routes/sync');
 const internalLoincRoutes = require('./routes/internalLoinc');
 const ragRoutes = require('./routes/rag');
+const growthRoutes = require('./routes/growth');
 const { startDocumentTextExtractionWorker } = require('./workers/pdfWorker');
 
 //Prefixo /api para padronização das rotas
@@ -98,6 +99,7 @@ app.use('/api/medicoes', fetalMeasurementsRoutes);
 app.use('/api/sync', syncRoutes);
 app.use('/api/internal/loinc', internalLoincRoutes);
 app.use('/api/internal/rag', ragRoutes);
+app.use('/api/growth', growthRoutes);
 
 //Rota de teste (para verificar se o backend está no ar)
 app.get('/ping', (req, res) => {
