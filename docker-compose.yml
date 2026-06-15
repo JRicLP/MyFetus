@@ -12,6 +12,7 @@ services:
       - ./apps/api/db/create_tables.sql:/docker-entrypoint-initdb.d/1_create_tables.sql:ro
       - ./apps/api/db/triggers.sql:/docker-entrypoint-initdb.d/2_triggers.sql:ro
       - ./apps/api/db/migration.sql:/docker-entrypoint-initdb.d/3_migration.sql:ro
+      - ./apps/api/db/migration_sprint6_history.sql:/docker-entrypoint-initdb.d/4_migration_sprint6_history.sql:ro
     ports:
       - "5434:5432"
     healthcheck:

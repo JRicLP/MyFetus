@@ -228,6 +228,56 @@ Resposta esperada: `201 Created` com mensagem e objeto da medição.
 
 ---
 
+### Histórico clínico (biometria fetal e peso materno)
+
+Todas as rotas exigem `Authorization: Bearer <token>`. Gestante, médico
+vinculado e admin podem consultar. Apenas médico vinculado e admin podem
+registrar dados.
+
+- `GET /api/history/pregnancies/:pregnancyId`
+- `GET /api/history/pregnancies/:pregnancyId/fetal-biometries`
+- `POST /api/history/pregnancies/:pregnancyId/fetal-biometries`
+- `GET /api/history/pregnancies/:pregnancyId/maternal-weights`
+- `POST /api/history/pregnancies/:pregnancyId/maternal-weights`
+
+As consultas aceitam `from`, `to` (`YYYY-MM-DD`), `order` (`asc|desc`) e
+`limit` (1 a 500).
+
+Payload de biometria fetal:
+
+```json
+{
+  "measured_at": "2026-06-15",
+  "gestational_age_weeks": 32,
+  "dbp_mm": 82,
+  "cc_mm": 300,
+  "ca_mm": 280,
+  "cf_mm": 62,
+  "notes": "Ultrassom de rotina"
+}
+```
+
+O backend calcula e persiste automaticamente PFE, peso mediano esperado,
+percentil Hadlock e Z-score.
+
+Payload de peso materno:
+
+```json
+{
+  "measured_at": "2026-06-15",
+  "weight_kg": 68.4,
+  "notes": "Consulta pre-natal"
+}
+```
+
+Em bancos existentes, aplique:
+
+```bash
+psql -U myuser -d mydatabase -f apps/api/db/migration_sprint6_history.sql
+```
+
+---
+
 ### Sync (sincronização)
 
 Exige `Authorization: Bearer <token>` de usuário `admin`.

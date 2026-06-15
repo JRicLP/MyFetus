@@ -23,7 +23,8 @@
     "test:stress-engine": "node ./tests/stressEngine.test.js",
     "test:stress": "node ./tests/stressTest.test.js",
     "test:stress:integration": "node ./tests/stressIntegration.test.js --integration",
-    "test:hadlockCalculator": "node ./tests/hadlockCalculator.test.js"
+    "test:hadlockCalculator": "node ./tests/hadlockCalculator.test.js",
+    "test:clinical-history": "node ./tests/clinicalHistoryService.test.js"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",

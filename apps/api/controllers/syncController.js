@@ -42,7 +42,16 @@ const syncData = async (req, res) => {
 
     // Fase 2: Buscar as alterações do servidor (Pull)
     const serverChanges = {};
-    const tablesToSync = ['users', 'pregnants', 'pregnancies', 'pregnancy_events', 'pregnant_documents', 'medidas_fetais'];
+    const tablesToSync = [
+      'users',
+      'pregnants',
+      'pregnancies',
+      'pregnancy_events',
+      'pregnant_documents',
+      'medidas_fetais',
+      'fetal_biometry_history',
+      'maternal_weight_history'
+    ];
     
     for (const table of tablesToSync) {
       let query;
