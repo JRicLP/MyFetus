@@ -11,7 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { apiUrl } from '../../../utils/api';
+import { apiUrl, fetchWithAuth } from '../../../utils/api';
 
 // --- Funções de Classificação ---
 const classificarPA = (sistole: number, diastole: number) => {
@@ -82,7 +82,7 @@ export default function InfoPacienteScreen() {
       try {
         setLoading(true);
         // 1. LENDO OS DADOS 
-        const response = await fetch(apiUrl(`/api/pregnants/${patientId}`));
+        const response = await fetchWithAuth(apiUrl(`/api/pregnants/${patientId}`));
         if (!response.ok) {
           throw new Error('Não foi possível buscar os dados da paciente');
         }
@@ -135,7 +135,7 @@ export default function InfoPacienteScreen() {
     try {
       // --- SALVAMENTO 1: Tabela 'pregnants' ---
       // (Sistole / Diastole)
-      const pregnantResponse = await fetch(apiUrl(`/api/pregnants/${patientId}`), {
+      const pregnantResponse = await fetchWithAuth(apiUrl(`/api/pregnants/${patientId}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -150,7 +150,7 @@ export default function InfoPacienteScreen() {
       // --- SALVAMENTO 2: Tabela 'pregnancies' ---
       // (Glicemia / BCF / Altura Uterina)
       if (pregnancyId) {
-        const pregnancyResponse = await fetch(apiUrl(`/api/pregnancies/${pregnancyId}`), {
+        const pregnancyResponse = await fetchWithAuth(apiUrl(`/api/pregnancies/${pregnancyId}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

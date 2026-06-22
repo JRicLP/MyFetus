@@ -12,7 +12,6 @@ const { generateEmbedding } = require('../services/embeddingService');
 const { queryVectors } = require('../services/vectorStoreService');
 
 async function main() {
-  const question = 'Quais são fatores de risco para pré-eclâmpsia?';
   const question = 'Como é feita a estratificação de risco na gestação?';
 
   console.log('Pergunta:', question);

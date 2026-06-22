@@ -1,5 +1,8 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+
+const AUTH_TOKEN_KEY = 'authToken';
 
 function stripTrailingSlash(url: string): string {
   return url.endsWith('/') ? url.slice(0, -1) : url;
@@ -46,4 +49,20 @@ export function apiUrl(path: string): string {
   const base = getApiBaseUrl();
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   return `${base}${normalizedPath}`;
+}
+
+/**
+ * Wrapper de `fetch` que anexa o token salvo no login (`AUTH_TOKEN_KEY`) como
+ * `Authorization: Bearer <token>`. Use no lugar de `fetch` em toda chamada às
+ * rotas da API — a maioria exige `authenticateToken` e responde 401 sem isso.
+ */
+export async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
+  const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+
+  const headers = new Headers(options.headers as HeadersInit | undefined);
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  return fetch(url, { ...options, headers });
 }

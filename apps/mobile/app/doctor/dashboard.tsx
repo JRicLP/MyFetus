@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -9,10 +9,10 @@ import {
   FlatList,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import { apiUrl } from '../../utils/api';
+import { apiUrl, fetchWithAuth } from '../../utils/api';
 
 // Ícones para os status
 const statusIcons: { [key: string]: any } = {
@@ -53,49 +53,50 @@ export default function DashboardScreen() {
     return idade >= 35 || idade <= 15 ? 'risco' : 'normal';
   };
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        
-        // 1. Nome do Médico
-        const userDataString = await AsyncStorage.getItem('userData');
-        if (userDataString) {
-          const userData = JSON.parse(userDataString);
-          const firstName = userData.name.split(' ')[0];
-          setDoctorName(`Dr. ${firstName}`);
-        }
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
 
-        // 2. Token de autenticação
-        const token = await AsyncStorage.getItem('authToken');
-
-        // 3. Lista de Pacientes (API Melhorada)
-        const response = await fetch(`${apiUrl('/api/pregnants')}?_=${Date.now()}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        if (!response.ok) {
-          const body = await response.text().catch(() => '');
-          console.log('Resposta de erro da API:', response.status, body);
-          throw new Error(`Erro ao buscar pacientes (${response.status})`);
-        }
-        const data = await response.json();
-        setPatients(data);
-
-      } catch (e) {
-        console.error(e);
-        setError(e instanceof Error ? e.message : 'Erro de rede');
-      } finally {
-        setLoading(false);
+      // 1. Nome do Médico
+      const userDataString = await AsyncStorage.getItem('userData');
+      if (userDataString) {
+        const userData = JSON.parse(userDataString);
+        const firstName = userData.name.split(' ')[0];
+        setDoctorName(`Dr. ${firstName}`);
       }
-    };
-    loadData();
+
+      // 2. Lista de Pacientes (API Melhorada)
+      const response = await fetchWithAuth(`${apiUrl('/api/pregnants')}?_=${Date.now()}`);
+      if (!response.ok) {
+        const body = await response.text().catch(() => '');
+        console.log('Resposta de erro da API:', response.status, body);
+        throw new Error(`Erro ao buscar pacientes (${response.status})`);
+      }
+      const data = await response.json();
+      setPatients(data);
+      setError(null);
+    } catch (e) {
+      console.error(e);
+      setError(e instanceof Error ? e.message : 'Erro de rede');
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  // Recarrega a lista sempre que a tela ganha foco (ex: ao voltar de "Vincular Paciente"),
+  // já que a tela permanece montada na pilha de navegação do expo-router.
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   const handlePatientPress = (patientId: string) => {
     router.push(`/doctor/${patientId}/identificacao`);
+  };
+
+  const handleAddPatient = () => {
+    router.push('/doctor/vincular-paciente');
   };
 
   const handleAlertPress = (patientId: string) => {
@@ -167,9 +168,14 @@ export default function DashboardScreen() {
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Olá {doctorName}!</Text>
-          <TouchableOpacity>
-            <Ionicons name="filter-outline" size={28} color="#555" />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity onPress={handleAddPatient} style={styles.headerActionButton}>
+              <Ionicons name="person-add-outline" size={26} color="#886aea" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.headerActionButton}>
+              <Ionicons name="filter-outline" size={28} color="#555" />
+            </TouchableOpacity>
+          </View>
         </View>
         <Text style={styles.subHeader}>Qual paciente você quer ver?</Text>
         <View style={styles.searchContainer}>
@@ -186,6 +192,8 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#E6E0F8' },
   container: { flex: 1, paddingHorizontal: 20 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20 },
+  headerActions: { flexDirection: 'row', alignItems: 'center' },
+  headerActionButton: { marginLeft: 16 },
   headerTitle: { fontSize: 28, fontWeight: 'bold', color: '#333' },
   subHeader: { fontSize: 16, color: '#555', marginBottom: 15 },
   searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderRadius: 25, height: 50, marginBottom: 20, elevation: 2 },

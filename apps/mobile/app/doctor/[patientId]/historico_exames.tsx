@@ -13,7 +13,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { apiUrl } from '../../../utils/api';
+import { apiUrl, fetchWithAuth } from '../../../utils/api';
 
 type StoredUser = {
   id: number;
@@ -62,7 +62,7 @@ export default function ExamesScreen() {
 
   const fetchDocs = useCallback(async () => {
     if (!patientId) return;
-    const res = await fetch(apiUrl(`/api/documents/documents?pregnant_id=${patientId}`));
+    const res = await fetchWithAuth(apiUrl(`/api/documents/documents?pregnant_id=${patientId}`));
     const data = await res.json();
     if (!res.ok) {
       throw new Error(data?.error || 'Não foi possível buscar os exames enviados');
@@ -105,7 +105,7 @@ export default function ExamesScreen() {
 
     setIsSaving(true);
     try {
-      const res = await fetch(apiUrl(`/api/documents/documents/${selectedDocId}/report`), {
+      const res = await fetchWithAuth(apiUrl(`/api/documents/documents/${selectedDocId}/report`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { askClinicalChat } from '../utils/chatApi';
 
 interface Message {
   id: string;
@@ -52,17 +53,26 @@ export default function ChatModal({ visible, onClose }: ChatModalProps) {
     setInputText('');
     setLoading(true);
 
-    // Simulate bot response (will be replaced with actual LLM call)
-    setTimeout(() => {
+    try {
+      const { resposta } = await askClinicalChat(userMessage.text);
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: 'Obrigado pela sua pergunta. Esta é uma resposta de demonstração. A conexão com a base de conhecimento médico será ativada em breve.',
+        text: resposta,
         sender: 'bot',
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, botMessage]);
+    } catch (error) {
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: 'Não consegui consultar o assistente agora. Tente novamente em alguns instantes.',
+        sender: 'bot',
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   return (

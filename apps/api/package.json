@@ -34,12 +34,13 @@
     "test:db": "docker compose run --rm backend node /app/tests/database.test.js",
     "test:loinc": "docker compose run --rm backend node /app/tests/loincMapper.test.js",
     "test:loinc:endpoint": "docker compose run --rm backend node /app/tests/internalLoinc.test.js",
-    "test:rag": "node ./tests/ragRetrieval.test.js",
+    "test:rag": "node ./tests/chunkingService.test.js && node ./tests/embeddingService.test.js && node ./tests/vectorStoreService.test.js && node ./tests/ragSearch.test.js",
     "test:stress-engine": "node ./tests/stressEngine.test.js",
     "test:stress": "node ./tests/stressTest.test.js",
     "test:stress:integration": "node ./tests/stressIntegration.test.js --integration"
   },
   "dependencies": {
+    "@google/genai": "^2.9.0",
     "@huggingface/transformers": "^4.2.0",
     "@napi-rs/canvas": "^0.1.80",
     "@pinecone-database/pinecone": "^6.1.4",
