@@ -1,9 +1,14 @@
-FROM node:20-alpine
+FROM node:20-bookworm-slim
 
 WORKDIR /app
 
-# Instalar dependências do sistema (se necessário para pacotes nativos)
-RUN apk add --no-cache python3 make g++ bash git
+# Instalar dependências do sistema (se necessário para pacotes nativos).
+# Usa glibc (Debian) em vez de Alpine/musl: o onnxruntime-node (dependência
+# do @huggingface/transformers, usado para gerar embeddings do RAG) só tem
+# binário prebuilt para glibc e falha ao carregar no Alpine.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 make g++ bash git \
+  && rm -rf /var/lib/apt/lists/*
 
 # Copiar apenas os arquivos de dependência
 COPY package.json yarn.lock* ./

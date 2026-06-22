@@ -47,6 +47,15 @@ services:
       DOCUMENT_EXTRACTION_BATCH_SIZE: 5
       DOCUMENT_EXTRACTION_INTERVAL_MS: 30000
 
+    # RAG - busca semântica e chat clínico (chaves lidas do .env na raiz do projeto)
+      PINECONE_API_KEY: ${PINECONE_API_KEY}
+      PINECONE_INDEX_NAME: myfetus-rag
+      PINECONE_NAMESPACE: guidelines
+      EMBEDDING_MODEL: Xenova/multilingual-e5-small
+      EMBEDDING_DIMENSION: 384
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: gemini-2.5-flash
+
     ports:
       - "3000:3000"
     command: ["node", "server.js"]
