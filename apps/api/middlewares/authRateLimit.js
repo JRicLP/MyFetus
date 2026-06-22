@@ -18,6 +18,10 @@ function createAuthLimiters(options = {}) {
     options.registerMax ?? process.env.REGISTER_RATE_LIMIT_MAX,
     5
   );
+  const adminReadMax = positiveInteger(
+    options.adminReadMax ?? process.env.ADMIN_READ_RATE_LIMIT_MAX,
+    100
+  );
   const common = {
     windowMs,
     standardHeaders: 'draft-7',
@@ -30,6 +34,7 @@ function createAuthLimiters(options = {}) {
   return {
     loginLimiter: rateLimit({ ...common, limit: loginMax }),
     registerLimiter: rateLimit({ ...common, limit: registerMax }),
+    adminReadLimiter: rateLimit({ ...common, limit: adminReadMax }),
   };
 }
 
