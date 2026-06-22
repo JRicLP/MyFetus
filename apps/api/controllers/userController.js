@@ -8,6 +8,8 @@ const bcrypt = require('bcrypt');
 
 const SALT_ROUNDS = 10
 
+const ALLOWED_USER_UPDATE_FIELDS = ['name', 'email', 'birthdate', 'is_active', 'role'];
+
 // Função de Sanitização de usuário:
 function sanitizeUser(user) {
   if (!user) return null;
@@ -140,7 +142,7 @@ const updateUser = async (req, res) => {
       updateData.password = hashedPassword;
     }
 
-    const updatedUser = await updateEntity('users', req.params.id, updateData);
+    const updatedUser = await updateEntity('users', req.params.id, updateData, ALLOWED_USER_UPDATE_FIELDS);
     if (!updatedUser) return res.status(404).send('Usuário não encontrado');
     res.json(sanitizeUser(updatedUser));
   } catch (err) {

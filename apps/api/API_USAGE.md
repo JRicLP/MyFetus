@@ -211,6 +211,31 @@ Resposta esperada: `201 Created` com mensagem e objeto da medição.
 
 ---
 
+### Doctor Patient Links (vínculo médico-gestante)
+
+Exige `Authorization: Bearer <token>` de usuário `medico`. É esse vínculo que controla quais
+gestantes aparecem em `GET /api/pregnants` para o médico e o acesso aos dados clínicos dela
+(`utils/clinicalAccess.js`).
+
+- Buscar gestante por email: GET `/api/doctor-patient-links/search?email=<email>`
+- Criar/reativar vínculo: POST `/api/doctor-patient-links`
+  - JSON: `{ "pregnant_id": <number> }`
+- Desativar vínculo: DELETE `/api/doctor-patient-links/:pregnantId`
+
+Exemplo:
+
+```bash
+curl "http://localhost:3000/api/doctor-patient-links/search?email=paciente@exemplo.com" \
+  -H "Authorization: Bearer <token>"
+
+curl -X POST http://localhost:3000/api/doctor-patient-links \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"pregnant_id":3}'
+```
+
+---
+
 ### Sync (sincronização)
 
 Exige `Authorization: Bearer <token>` de usuário `admin`.

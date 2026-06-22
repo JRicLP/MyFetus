@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons'; 
-import { apiUrl } from '../../../utils/api';
+import { apiUrl, fetchWithAuth } from '../../../utils/api';
 
 // ---  Funções de Cálculo e Formatação ---
 const calcularIdade = (dataNasc: Date) => {
@@ -202,7 +202,7 @@ export default function ResumoScreen() {
       try {
         setLoading(true);
         
-        const response = await fetch(apiUrl(`/api/pregnants/${patientId}`));
+        const response = await fetchWithAuth(apiUrl(`/api/pregnants/${patientId}`));
         if (!response.ok) {
           throw new Error('Não foi possível buscar os dados da paciente');
         }

@@ -18,8 +18,10 @@ export default function DoctorLayout() {
         }}
       />
 
+      <Stack.Screen name="vincular-paciente" options={{ title: 'Vincular Paciente' }} />
+
       {/* 3. Opções para as telas do Prontuário */}
-      
+
       <Stack.Screen name="[patientId]/identificacao" options={{ title: 'Identificação' }} />
       <Stack.Screen name="[patientId]/informacoes_iniciais" options={{ title: 'Informações Iniciais' }} />
       <Stack.Screen name="[patientId]/grafico" options={{ title: 'Gráfico de Acompanhamento' }} />

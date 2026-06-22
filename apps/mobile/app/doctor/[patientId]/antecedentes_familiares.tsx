@@ -11,7 +11,7 @@ import {
   Alert, 
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { apiUrl } from '../../../utils/api';
+import { apiUrl, fetchWithAuth } from '../../../utils/api';
 // --- COMPONENTE REUTILIZÁVEL 'ToggleButton'  ---
 type ToggleButtonProps = {
   label: string;
@@ -70,7 +70,7 @@ export default function AntecedentesFamiliaresScreen() {
       try {
         setLoading(true);
         // 1. LENDO OS DADOS da API
-        const response = await fetch(apiUrl(`/api/pregnants/${patientId}`));
+        const response = await fetchWithAuth(apiUrl(`/api/pregnants/${patientId}`));
         if (!response.ok) {
           throw new Error('Não foi possível buscar os dados da paciente');
         }
@@ -103,7 +103,7 @@ export default function AntecedentesFamiliaresScreen() {
     try {
       // 1. ALIMENTANDO O BD (Tabela 'pregnants')
       // Usando a rota de update de gestante
-      const response = await fetch(apiUrl(`/api/pregnants/${patientId}`), {
+      const response = await fetchWithAuth(apiUrl(`/api/pregnants/${patientId}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
