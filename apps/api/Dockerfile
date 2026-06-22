@@ -1,14 +1,10 @@
-FROM node:20-bookworm-slim
+# Usa Debian Slim que possui glibc nativo, exigido pelo ONNX Runtime
+FROM node:20-slim
 
 WORKDIR /app
 
-# Instalar dependências do sistema (se necessário para pacotes nativos).
-# Usa glibc (Debian) em vez de Alpine/musl: o onnxruntime-node (dependência
-# do @huggingface/transformers, usado para gerar embeddings do RAG) só tem
-# binário prebuilt para glibc e falha ao carregar no Alpine.
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends python3 make g++ bash git \
-  && rm -rf /var/lib/apt/lists/*
+# Instalar dependências do sistema usando apt-get (Debian) em vez de apk (Alpine)
+RUN apt-get update && apt-get install -y python3 make g++ bash git && rm -rf /var/lib/apt/lists/*
 
 # Copiar apenas os arquivos de dependência
 COPY package.json yarn.lock* ./

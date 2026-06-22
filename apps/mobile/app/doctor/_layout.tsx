@@ -35,6 +35,7 @@ export default function DoctorLayout() {
       <Stack.Screen name="[patientId]/historico_ultrassons" options={{ title: 'Ultrassons' }} />
       <Stack.Screen name="[patientId]/informacoes_gerais" options={{ title: 'Geral' }} /> 
       <Stack.Screen name="[patientId]/resumo" options={{ title: 'Resumo' }} />
+      <Stack.Screen name="[patientId]/alertas" options={{ title: 'Alertas' }} />
     </Stack>
   );
 }

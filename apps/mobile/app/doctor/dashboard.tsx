@@ -66,8 +66,12 @@ export default function DashboardScreen() {
       }
 
       // 2. Lista de Pacientes (API Melhorada)
-      const response = await fetchWithAuth(apiUrl('/api/pregnants'));
-      if (!response.ok) throw new Error('Erro ao buscar pacientes');
+      const response = await fetchWithAuth(`${apiUrl('/api/pregnants')}?_=${Date.now()}`);
+      if (!response.ok) {
+        const body = await response.text().catch(() => '');
+        console.log('Resposta de erro da API:', response.status, body);
+        throw new Error(`Erro ao buscar pacientes (${response.status})`);
+      }
       const data = await response.json();
       setPatients(data);
       setError(null);
@@ -95,6 +99,10 @@ export default function DashboardScreen() {
     router.push('/doctor/vincular-paciente');
   };
 
+  const handleAlertPress = (patientId: string) => {
+    router.push(`/doctor/${patientId}/alertas` as any);
+  };
+
   const renderPatientCard = ({ item }: { item: Patient }) => {
     const status = getStatus(item.birthdate);
     
@@ -103,7 +111,7 @@ export default function DashboardScreen() {
         style={styles.patientCard}
         onPress={() => handlePatientPress(item.pregnant_id)}
       >
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.patientName}>{item.patient_name}</Text>
           
           {/* Mostra as semanas reais ou um aviso se não tiver gestação iniciada */}
@@ -117,12 +125,24 @@ export default function DashboardScreen() {
             {status === 'risco' ? 'Gravidez de Risco (Idade)' : 'Acompanhamento Normal'}
           </Text>
         </View>
-        
-        <Ionicons
-          name={statusIcons[status]}
-          size={28}
-          color={statusColors[status]}
-        />
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <TouchableOpacity
+            onPress={() => handleAlertPress(item.pregnant_id)}
+            style={styles.alertButton}
+          >
+            <Ionicons
+              name="pulse-outline"
+              size={22}
+              color="#886aea"
+            />
+          </TouchableOpacity>
+          <Ionicons
+            name={statusIcons[status]}
+            size={28}
+            color={statusColors[status]}
+          />
+        </View>
       </TouchableOpacity>
     );
   };
@@ -184,4 +204,12 @@ const styles = StyleSheet.create({
   patientWeeks: { fontSize: 14, color: '#555', marginVertical: 4 },
   patientNotification: { fontSize: 12, color: '#777' },
   errorText: { textAlign: 'center', marginTop: 50, fontSize: 16, color: '#e74c3c' },
+  alertButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f0edff',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 });

@@ -39,8 +39,16 @@ const express = require('express');
 const cors = require('cors');
 const db = require('./backend');
 const logger = require('./utils/logger');
+const { getSecurityConfig, requireHttps } = require('./config/security');
 
 const app = express();
+const securityConfig = getSecurityConfig();
+
+if (securityConfig.trustProxy) {
+  app.set('trust proxy', securityConfig.trustProxy);
+}
+
+app.use(requireHttps(securityConfig));
 
 const allowedOrigins = (process.env.CORS_ORIGIN || [
   'http://localhost:8081',
@@ -148,19 +156,13 @@ async function ensurePregnantDocumentsReportSchema() {
 
 ensurePregnantDocumentsReportSchema();
 
-// Garante o esquema do fluxo médico-gestante (papéis 'medico'/'gestante' e a
-// tabela `doctor_patient_links`), necessário para o dashboard do médico e
-// para o controle de acesso clínico em `utils/clinicalAccess.js`. Mantém o
-// valor legado 'user' aceito, pois há dados existentes com esse papel.
+// Garante a tabela `doctor_patient_links`, necessária para o dashboard do
+// médico e para o controle de acesso clínico em `utils/clinicalAccess.js`.
+// Já existe via db/migration_security_baseline.sql para bancos novos; isso
+// aqui é só self-healing para volumes locais criados antes dessa migration.
 async function ensureDoctorWorkflowSchema() {
   try {
     await db.query(`
-      ALTER TABLE users
-        DROP CONSTRAINT IF EXISTS users_role_check;
-      ALTER TABLE users
-        ADD CONSTRAINT users_role_check
-        CHECK (role IN ('user', 'gestante', 'medico', 'admin'));
-
       CREATE TABLE IF NOT EXISTS doctor_patient_links (
         id SERIAL PRIMARY KEY,
         doctor_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

@@ -36,3 +36,9 @@ Thumbs.db
 
 # VS Code
 .vscode/
+
+# PDFs escaneados — gerados localmente via generate_dataset.js --with-ocr
+tests/fixtures/pdfs/scanned/
+
+# Guidelines clínicos — baixados via script de setup
+apps/api/data/guidelines/*.pdf

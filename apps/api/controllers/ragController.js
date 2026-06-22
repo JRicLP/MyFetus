@@ -1,6 +1,6 @@
 /**
  * ragController.js
- * 
+ *
  * Controlador para endpoints de RAG (Retrieval-Augmented Generation)
  * Gerencia requisições de busca semântica e consulta ao knowledge base
  */

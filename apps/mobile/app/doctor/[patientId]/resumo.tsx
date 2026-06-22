@@ -435,6 +435,14 @@ export default function ResumoScreen() {
           <Text style={styles.infoText}>{paciente.info_gerais_psicossocial || "(Vazio)"}</Text>
         </View>
 
+        {/* Botão para DASHBOARD DE ALERTAS */}
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: '#e74c3c' }]}
+          onPress={() => router.push(`/doctor/${patientId}/alertas` as any)}
+        >
+          <Text style={styles.buttonText}>Dashboard de Alertas</Text>
+        </TouchableOpacity>
+
         {/* Botão para VOLTAR AO INÍCIO */}
         <TouchableOpacity style={styles.button} onPress={handleBackToStart}>
           <Text style={styles.buttonText}>Voltar ao Início</Text>

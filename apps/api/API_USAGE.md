@@ -13,11 +13,11 @@ docker compose up -d --build
 docker compose restart backend
 ```
 
-- Variáveis de ambiente (se rodar localmente sem Docker):
-  - `PG_USER` (default `myuser`)
-  - `PG_PASSWORD` (default `mypassword`)
-  - `PG_DATABASE` (default `mydatabase`)
-  - `PG_HOST` (default `myfetus-db`)
+- Variáveis de ambiente obrigatórias:
+  - `PG_USER`
+  - `PG_PASSWORD`
+  - `PG_DATABASE`
+  - `PG_HOST`
   - `PG_PORT` (default `5432`)
   - `PORT` (default `3000`)
   - `JWT_SECRET` (obrigatório para rotas autenticadas)
@@ -30,22 +30,32 @@ Observação: o servidor expõe `/api` como prefixo de todas as rotas.
 
 ### JWT de teste
 
-Para gerar um novo `JWT_SECRET` e imprimir um token de teste de `admin`, use o script abaixo dentro de `apps/api`:
+Para gerar um valor de `JWT_SECRET`, use:
 
 ```bash
-node ./scripts/rotate-jwt-secret-and-generate-token.js --dry-run
+npm run jwt:secret
 ```
 
-Para aplicar a troca no `docker-compose.yml` e reiniciar o backend, execute sem `--dry-run` e com `--restart`:
+Para rotacionar o segredo no `.env` local:
 
 ```bash
-node ./scripts/rotate-jwt-secret-and-generate-token.js --restart
+npm run jwt:rotate
 ```
 
-O script imprime:
-- o novo `JWT_SECRET`
-- o JWT de teste já assinado
-- um `curl` pronto para validar o endpoint interno `POST /api/internal/loinc/term`
+O comando não imprime o novo segredo. Tokens emitidos anteriormente deixam de
+ser válidos. Use `npm run jwt:rotate -- --restart` para também recriar o backend.
+
+### JWT de teste sem rotacionar segredo
+
+Para gerar um token válido com o `JWT_SECRET` atual do `.env`, use:
+
+```bash
+npm run jwt:test-token
+```
+
+O comando imprime apenas um JWT de `admin` para desenvolvimento local.
+
+Use esse fluxo quando quiser apenas autenticar chamadas locais sem alterar a configuração do backend.
 
 Se preferir usar a JWT gerada manualmente em outro request, copie o token impresso e envie no header:
 
@@ -60,6 +70,7 @@ Authorization: Bearer <token-gerado>
 - Campo `role` em `users` aceita apenas: `gestante`, `medico`, `admin`.
 - Uploads de documentos usam `multer` e salvam arquivos em `uploads/`.
 - O script de testes está em `apps/api/test_api.sh` e verifica os principais endpoints.
+- O comando `npm run jwt:test-token` usa o `JWT_SECRET` do `.env` sem rotacioná-lo.
 
 ---
 
@@ -302,3 +313,21 @@ Arquivo de referência do projeto:
 - Script de teste: `apps/api/test_api.sh`
 - Controllers: `apps/api/controllers/` (ver implementação das rotas)
 - Esquema do banco: `apps/api/db/create_tables.sql`
+
+## Setup local
+
+### Gerar dataset de teste (PDFs escaneados)
+```bash
+node scripts/generate_dataset.js --with-ocr
+```
+
+### Baixar guidelines clínicos
+```bash
+# Criar a pasta e baixar manualmente os PDFs de:
+# - FEBRASGO: https://...
+# - ACOG: https://...
+# - Manual MS: https://...
+mkdir -p apps/api/data/guidelines/
+```
+
+Se os PDFs das guidelines forem de uso interno ou já tiverem URL fixa, você pode criar um script `scripts/download_guidelines.sh` que faz o download automaticamente — aí o setup fica com um único comando.
