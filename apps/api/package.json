@@ -38,7 +38,8 @@
     "test:stress-engine": "node ./tests/stressEngine.test.js",
     "test:stress": "node ./tests/stressTest.test.js",
     "test:stress:integration": "node ./tests/stressIntegration.test.js --integration",
-    "test:generation-service": "node --test ./tests/generationService.test.js"
+    "test:generation-service": "node --test ./tests/generationService.test.js",
+    "test:agent-controller": "node --test ./tests/agentController.test.js"
   },
   "dependencies": {
     "@google/genai": "^2.10.0",

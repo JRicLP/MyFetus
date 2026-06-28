@@ -97,6 +97,7 @@ const syncRoutes = require('./routes/sync');
 const internalLoincRoutes = require('./routes/internalLoinc');
 const ragRoutes = require('./routes/rag');
 const { startDocumentTextExtractionWorker } = require('./workers/pdfWorker');
+const agentRoutes = require('./routes/agent');
 
 //Prefixo /api para padronização das rotas
 app.use('/api/users', userRoutes);
@@ -109,6 +110,7 @@ app.use('/api/doctor-patient-links', doctorPatientLinksRoutes);
 app.use('/api/sync', syncRoutes);
 app.use('/api/internal/loinc', internalLoincRoutes);
 app.use('/api/internal/rag', ragRoutes);
+app.use('/api/agent', agentRoutes);
 
 //Rota de teste (para verificar se o backend está no ar)
 app.get('/ping', (req, res) => {
