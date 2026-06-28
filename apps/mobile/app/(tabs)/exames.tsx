@@ -13,7 +13,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
 import * as WebBrowser from 'expo-web-browser';
-import { apiUrl } from '../../utils/api';
+import { apiUrl, fetchWithAuth } from '../../utils/api';
 
 type StoredUser = {
   id: number;
@@ -64,7 +64,7 @@ export default function ExamesTabScreen() {
       return;
     }
 
-    const res = await fetch(apiUrl(`/api/documents/documents?pregnant_id=${pregnantId}`));
+    const res = await fetchWithAuth(apiUrl(`/api/documents/documents?pregnant_id=${pregnantId}`));
     const data = await res.json();
 
     if (!res.ok) {
@@ -164,7 +164,7 @@ export default function ExamesTabScreen() {
         );
       }
 
-      const res = await fetch(apiUrl('/api/documents/documents'), {
+      const res = await fetchWithAuth(apiUrl('/api/documents/documents'), {
         method: 'POST',
         body: form,
       });

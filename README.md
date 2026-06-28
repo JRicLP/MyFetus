@@ -140,21 +140,26 @@ Se usar um dispositivo físico, ajuste as chamadas para a API para usar o IP da 
 
 ## Variáveis de ambiente
 
-Com Docker, as principais variáveis já estão definidas no `docker-compose.yml`.
-
-Para rodar a API fora do Docker, crie `apps/api/.env`:
+Crie um `.env` na raiz a partir de `.env.example`. O Docker Compose carrega
+esse arquivo sem manter segredos no YAML versionado.
 
 ```env
-PG_USER=myuser
-PG_PASSWORD=mypassword
-PG_DATABASE=mydatabase
-PG_HOST=localhost
-PG_PORT=5434
+PG_USER=myfetus_app
+PG_PASSWORD=gere_uma_senha_forte
+PG_DATABASE=myfetus
+PG_HOST=db
+PG_PORT=5432
 PORT=3000
 
-JWT_SECRET=uma_chave_grande_de_teste
+JWT_SECRET=gere_com_npm_run_jwt_secret
 JWT_EXPIRES_IN=8h
 CORS_ORIGIN=http://localhost:8081,http://localhost:19006,http://localhost:3000
+NODE_ENV=development
+TRUST_PROXY=
+ENFORCE_HTTPS=false
+AUTH_RATE_LIMIT_WINDOW_MS=900000
+AUTH_RATE_LIMIT_MAX=10
+REGISTER_RATE_LIMIT_MAX=5
 
 OCR_LANGUAGES=por+eng
 PDF_TEXT_MIN_LENGTH_FOR_OCR=50
@@ -163,6 +168,25 @@ DOCUMENT_EXTRACTION_INTERVAL_MS=30000
 ```
 
 Dentro da rede Docker, o backend usa `PG_HOST=db` e `PG_PORT=5432`.
+
+Gere ou rotacione o segredo JWT dentro de `apps/api`:
+
+```bash
+npm run jwt:secret
+npm run jwt:rotate
+npm run db:rotate-password
+```
+
+`jwt:rotate` atualiza o `.env` local sem imprimir o segredo e invalida os tokens
+emitidos anteriormente.
+
+`db:rotate-password` altera a senha da role PostgreSQL e, somente após sucesso,
+atualiza `PG_PASSWORD` no `.env`. Para executar fora da rede Docker, use
+`DB_ROTATION_HOST=localhost` e `DB_ROTATION_PORT=5434`.
+
+Em produção, termine TLS em um reverse proxy e configure
+`NODE_ENV=production`, `TRUST_PROXY=1` e `ENFORCE_HTTPS=true`. A API recusa HTTP
+com status `426` e envia HSTS em conexões HTTPS.
 
 ## Scripts úteis
 

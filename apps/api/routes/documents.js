@@ -35,7 +35,12 @@ const {
 } = require('../controllers/documentsController');
 const { authenticateToken, requireRole } = require('../middlewares/auth');
 
-const upload = multer({ dest: 'uploads/' }); // pasta para salvar arquivos temporariamente
+const upload = multer({
+  dest: 'uploads/',
+  limits: {
+    fileSize: Number(process.env.DOCUMENT_MAX_UPLOAD_BYTES || 25 * 1024 * 1024),
+  },
+});
 const requireDocumentAccess = [authenticateToken, requireRole('medico', 'admin')];
 
 router.post(

@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons'; 
-import { apiUrl } from '../../../utils/api';
+import { apiUrl, fetchWithAuth } from '../../../utils/api';
 
 // ---  Funções de Cálculo e Formatação ---
 const calcularIdade = (dataNasc: Date) => {
@@ -202,7 +202,7 @@ export default function ResumoScreen() {
       try {
         setLoading(true);
         
-        const response = await fetch(apiUrl(`/api/pregnants/${patientId}`));
+        const response = await fetchWithAuth(apiUrl(`/api/pregnants/${patientId}`));
         if (!response.ok) {
           throw new Error('Não foi possível buscar os dados da paciente');
         }
@@ -434,6 +434,14 @@ export default function ResumoScreen() {
           <Text style={styles.infoLabel}>Avaliação Psicossocial e emocional:</Text>
           <Text style={styles.infoText}>{paciente.info_gerais_psicossocial || "(Vazio)"}</Text>
         </View>
+
+        {/* Botão para DASHBOARD DE ALERTAS */}
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: '#e74c3c' }]}
+          onPress={() => router.push(`/doctor/${patientId}/alertas` as any)}
+        >
+          <Text style={styles.buttonText}>Dashboard de Alertas</Text>
+        </TouchableOpacity>
 
         {/* Botão para VOLTAR AO INÍCIO */}
         <TouchableOpacity style={styles.button} onPress={handleBackToStart}>

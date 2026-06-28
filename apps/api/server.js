@@ -20,6 +20,7 @@
  *    - /api/pregnancyEvents → pregnancyEvents.js
  *    - /api/documents       → documents.js
  *    - /api/medicoes        → medicoes.js
+ *    - /api/doctor-patient-links → doctorPatientLinks.js
  *
  * 4. Rota de teste:
  *    - GET /ping → retorna mensagem para verificar se o backend está ativo.
@@ -38,8 +39,16 @@ const express = require('express');
 const cors = require('cors');
 const db = require('./backend');
 const logger = require('./utils/logger');
+const { getSecurityConfig, requireHttps } = require('./config/security');
 
 const app = express();
+const securityConfig = getSecurityConfig();
+
+if (securityConfig.trustProxy) {
+  app.set('trust proxy', securityConfig.trustProxy);
+}
+
+app.use(requireHttps(securityConfig));
 
 const allowedOrigins = (process.env.CORS_ORIGIN || [
   'http://localhost:8081',
@@ -83,6 +92,7 @@ const pregnancyRoutes = require('./routes/pregnancies');
 const pregnancyEventsRoutes = require('./routes/pregnancyEvents');
 const documentsRoutes = require('./routes/documents');
 const fetalMeasurementsRoutes = require('./routes/medicoes');
+const doctorPatientLinksRoutes = require('./routes/doctorPatientLinks');
 const syncRoutes = require('./routes/sync');
 const internalLoincRoutes = require('./routes/internalLoinc');
 const ragRoutes = require('./routes/rag');
@@ -97,6 +107,7 @@ app.use('/api/pregnancies', pregnancyRoutes);
 app.use('/api/pregnancyEvents', pregnancyEventsRoutes);
 app.use('/api/documents', documentsRoutes);
 app.use('/api/medicoes', fetalMeasurementsRoutes);
+app.use('/api/doctor-patient-links', doctorPatientLinksRoutes);
 app.use('/api/sync', syncRoutes);
 app.use('/api/internal/loinc', internalLoincRoutes);
 app.use('/api/internal/rag', ragRoutes);
@@ -148,6 +159,31 @@ async function ensurePregnantDocumentsReportSchema() {
 }
 
 ensurePregnantDocumentsReportSchema();
+
+// Garante a tabela `doctor_patient_links`, necessária para o dashboard do
+// médico e para o controle de acesso clínico em `utils/clinicalAccess.js`.
+// Já existe via db/migration_security_baseline.sql para bancos novos; isso
+// aqui é só self-healing para volumes locais criados antes dessa migration.
+async function ensureDoctorWorkflowSchema() {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS doctor_patient_links (
+        id SERIAL PRIMARY KEY,
+        doctor_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        pregnant_id INTEGER NOT NULL REFERENCES pregnants(id) ON DELETE CASCADE,
+        status VARCHAR(20) NOT NULL DEFAULT 'active',
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT doctor_patient_unique UNIQUE (doctor_id, pregnant_id),
+        CONSTRAINT doctor_patient_status_check CHECK (status IN ('active', 'inactive'))
+      );
+    `);
+  } catch (err) {
+    console.warn('⚠️ ensureDoctorWorkflowSchema falhou:', err?.message || err);
+  }
+}
+
+ensureDoctorWorkflowSchema();
 
 //Inicializa o servidor
 const PORT = process.env.PORT || 3000;

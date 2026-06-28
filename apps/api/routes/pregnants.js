@@ -17,6 +17,7 @@
 const express = require('express');
 const router = express.Router();
 const pregnantController = require('../controllers/pregnantController');
+const alertController = require('../controllers/alertController');
 const { authenticateToken, requireRole } = require('../middlewares/auth');
 
 router.post(
@@ -44,6 +45,13 @@ router.put(
   authenticateToken,
   requireRole('medico', 'admin'),
   pregnantController.updatePregnant
+);
+
+router.get(
+  '/:id/alerts',
+  authenticateToken,
+  requireRole('medico', 'admin'),
+  alertController.getPatientAlerts
 );
 
 module.exports = router;

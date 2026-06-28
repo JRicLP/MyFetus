@@ -23,7 +23,7 @@
     "expo": "^56.0.6",
     "expo-blur": "~56.0.3",
     "expo-constants": "~56.0.16",
-    "expo-document-picker": "~13.1.6",
+    "expo-document-picker": "~56.0.4",
     "expo-font": "~56.0.5",
     "expo-haptics": "~56.0.3",
     "expo-image": "~56.0.9",
@@ -50,7 +50,8 @@
     "react-native-svg": "15.15.4",
     "react-native-web": "^0.21.2",
     "react-native-webview": "13.16.1",
-    "react-native-worklets": "0.8.3"
+    "react-native-worklets": "0.8.3",
+    "victory-native": "^36.9.2"
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",

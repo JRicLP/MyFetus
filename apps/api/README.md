@@ -113,9 +113,9 @@ O banco PostgreSQL em:
 
 O backend utiliza as seguintes variáveis (configuradas automaticamente no Docker):
 
-PG_USER=myuser
-PG_PASSWORD=mypassword
-PG_DATABASE=mydatabase
+PG_USER=myfetus_app
+PG_PASSWORD=gere_uma_senha_forte
+PG_DATABASE=myfetus
 PG_HOST=db
 PG_PORT=5432
 PORT=3000
@@ -190,9 +190,9 @@ cd backend
 npm install
 
 2️⃣ Criar .env
-PG_USER=myuser
-PG_PASSWORD=mypassword
-PG_DATABASE=mydatabase
+PG_USER=myfetus_app
+PG_PASSWORD=gere_uma_senha_forte
+PG_DATABASE=myfetus
 PG_HOST=localhost
 PG_PORT=5432
 PORT=3000
