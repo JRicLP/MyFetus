@@ -37,7 +37,9 @@
     "test:rag": "node ./tests/chunkingService.test.js && node ./tests/embeddingService.test.js && node ./tests/vectorStoreService.test.js && node ./tests/ragSearch.test.js",
     "test:stress-engine": "node ./tests/stressEngine.test.js",
     "test:stress": "node ./tests/stressTest.test.js",
-    "test:stress:integration": "node ./tests/stressIntegration.test.js --integration"
+    "test:stress:integration": "node ./tests/stressIntegration.test.js --integration",
+    "test:hadlockCalculator": "node ./tests/hadlockCalculator.test.js",
+    "test:clinical-history": "node ./tests/clinicalHistoryService.test.js"
   },
   "dependencies": {
     "@google/genai": "^2.9.0",

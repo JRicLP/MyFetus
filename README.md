@@ -248,6 +248,9 @@ Rotas principais:
 | `GET` | `/api/documents/:id/text` | Consulta texto extraído |
 | `POST` | `/api/documents/:id/extract` | Reprocessa extração |
 | `POST` | `/api/medicoes` | Registra medida fetal |
+| `GET` | `/api/history/pregnancies/:id` | Consulta histórico fetal e materno |
+| `POST` | `/api/history/pregnancies/:id/fetal-biometries` | Registra biometria fetal |
+| `POST` | `/api/history/pregnancies/:id/maternal-weights` | Registra peso materno |
 | `POST` | `/api/sync` | Sincronização administrativa |
 
 Algumas rotas exigem `Authorization: Bearer <token>`. Consulte `apps/api/API_USAGE.md` para exemplos de payloads e comandos `curl`.
@@ -263,6 +266,8 @@ Principais tabelas:
 - `pregnancy_events`: eventos e intercorrências da gestação.
 - `pregnant_documents`: documentos enviados e metadados da extração de texto.
 - `medidas_fetais`: medidas fetais por idade gestacional.
+- `fetal_biometry_history`: série temporal de biometria e percentis fetais por gestação.
+- `maternal_weight_history`: série temporal de peso materno por gestação.
 
 Acesso rápido ao banco:
 
