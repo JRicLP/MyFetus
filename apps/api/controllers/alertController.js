@@ -1,5 +1,6 @@
 const client = require('../backend');
 const logger = require('../utils/logger');
+const { audit } = require('../services/auditService');
 
 const TRAFFIC = { GREEN: 'green', YELLOW: 'yellow', RED: 'red' };
 
@@ -222,6 +223,14 @@ const getPatientAlerts = async (req, res) => {
 
     const alertCounts = { green: 0, yellow: 0, red: 0 };
     Object.values(categories).filter(Boolean).forEach(cat => alertCounts[cat.level]++);
+
+    audit(req, {
+      action: 'ALERT_ACCESSED',
+      resource: 'alerts',
+      resource_id: id,
+      outcome: 'SUCCESS',
+      detail: { overall_level: overallLevel, alert_counts: alertCounts },
+    });
 
     res.json({
       patient_id: id,

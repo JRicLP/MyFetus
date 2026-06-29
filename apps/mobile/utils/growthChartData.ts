@@ -29,7 +29,7 @@ export const IMC_ADEQUADO_SOBREPESO: CurvePoint[] = [
   { week: 6, value: 24.9 }, { week: 8, value: 25.3 }, { week: 10, value: 25.6 },
   { week: 12, value: 26.0 }, { week: 14, value: 26.3 }, { week: 16, value: 26.6 },
   { week: 18, value: 26.9 }, { week: 20, value: 27.2 }, { week: 22, value: 27.5 },
-  { week: 24, value: 27.8 }, { week: 26, value: 28.1 }, { week: 28, value: 28.4 },
+  { week: 24, value: 27.8 }, { week: 26, value: 28.1 }, { week: 28, value: 25.9 },
   { week: 30, value: 28.6 }, { week: 32, value: 28.8 }, { week: 34, value: 29.0 },
   { week: 36, value: 29.1 }, { week: 38, value: 29.2 }, { week: 40, value: 29.2 },
   { week: 42, value: 29.2 },
@@ -61,12 +61,23 @@ export const ALTURA_UTERINA_P10: CurvePoint[] = [
 export const ALTURA_UTERINA_P90: CurvePoint[] = [
   { week: 13, value: 13 }, { week: 15, value: 15 }, { week: 17, value: 17 },
   { week: 19, value: 19 }, { week: 21, value: 21 }, { week: 23, value: 23 },
-  { week: 25, value: 25 }, { week: 27, value: 27 }, { week: 29, value: 28.5 },
+  { week: 25, value: 25 }, { week: 27, value: 27 }, { week: 29, value: 29 },
   { week: 31, value: 30 }, { week: 33, value: 32 }, { week: 35, value: 33 },
   { week: 37, value: 34 }, { week: 39, value: 35 },
 ];
 
 export const ALTURA_UTERINA_CHART_DOMAIN = { x: [13, 39] as [number, number], y: [7, 35] as [number, number] };
+
+export const clampValue = (value: number, [min, max]: [number, number]): number =>
+  Math.min(Math.max(value, min), max);
+
+export const clampChartPoint = (
+  point: { week: number; value: number },
+  domain: { x: [number, number]; y: [number, number] }
+) => ({
+  x: clampValue(point.week, domain.x),
+  y: clampValue(point.value, domain.y),
+});
 
 /** Interpola linearmente o valor da curva para uma semana gestacional qualquer. */
 export const interpolateCurve = (points: CurvePoint[], week: number): number => {
@@ -86,7 +97,7 @@ export const interpolateCurve = (points: CurvePoint[], week: number): number => 
 export type ClassificacaoNutricional = 'Baixo peso' | 'Adequado' | 'Sobrepeso' | 'Obesidade';
 
 export const classificarIMCPorSemana = (week: number, imc: number): ClassificacaoNutricional => {
-  if (imc <= interpolateCurve(IMC_BAIXO_PESO_ADEQUADO, week)) return 'Baixo peso';
+  if (imc < interpolateCurve(IMC_BAIXO_PESO_ADEQUADO, week)) return 'Baixo peso';
   if (imc <= interpolateCurve(IMC_ADEQUADO_SOBREPESO, week)) return 'Adequado';
   if (imc <= interpolateCurve(IMC_SOBREPESO_OBESIDADE, week)) return 'Sobrepeso';
   return 'Obesidade';

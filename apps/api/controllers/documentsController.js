@@ -9,6 +9,7 @@ const {
   processDocumentTextExtraction,
 } = require('../services/documentExtractionWorker');
 const logger = require('../utils/logger');
+const { audit } = require('../services/auditService');
 
 const ALLOWED_DOCUMENT_UPDATE_FIELDS = ['document_name', 'document_type'];
 const ENCRYPTED_STORAGE_DIR = path.resolve(
@@ -174,6 +175,13 @@ const uploadDocument = async (req, res) => {
     if (process.env.DISABLE_DOCUMENT_EXTRACTION_QUEUE !== 'true') {
       enqueueDocumentTextExtraction(result.rows[0].id);
     }
+    audit(req, {
+      action: 'DOCUMENT_UPLOADED',
+      resource: 'pregnant_documents',
+      resource_id: result.rows[0].id,
+      outcome: 'SUCCESS',
+      detail: { pregnant_id, document_type },
+    });
     return res.status(201).json({
       message: 'Documento enviado com seguranca; extracao de texto iniciada',
       document: sanitizeDocument(result.rows[0]),
@@ -243,6 +251,13 @@ const downloadDocument = async (req, res) => {
       storedDocument.file_path,
       { pregnantId: storedDocument.pregnant_id }
     );
+    audit(req, {
+      action: 'DOCUMENT_DOWNLOADED',
+      resource: 'pregnant_documents',
+      resource_id: storedDocument.id,
+      outcome: 'SUCCESS',
+      detail: { pregnant_id: storedDocument.pregnant_id },
+    });
     res.attachment(document.document_name || `documento-${document.id}`);
     res.type(document.document_type || 'application/octet-stream');
     return res.send(buffer);
@@ -295,6 +310,13 @@ const deleteDocument = async (req, res) => {
         tombstonePath,
       });
     }
+    audit(req, {
+      action: 'DOCUMENT_DELETED',
+      resource: 'pregnant_documents',
+      resource_id: document.id,
+      outcome: 'SUCCESS',
+      detail: { pregnant_id: document.pregnant_id },
+    });
     return res.json({ message: 'Documento removido com sucesso' });
   } catch (error) {
     if (dbClient && !committed) {

@@ -9,13 +9,19 @@ const express = require('express');
 const router = express.Router();
 
 const { authenticateToken, requireRole } = require('../middlewares/auth');
-const { searchKnowledgeBase, askClinicalChat, getRAGStats } = require('../controllers/ragController');
+const {
+  askClinicalAgentsChat,
+  searchKnowledgeBase,
+  askClinicalChat,
+  getRAGStats,
+} = require('../controllers/ragController');
 
 // Busca semântica no knowledge base (requer autenticação)
 router.post('/search', authenticateToken, searchKnowledgeBase);
 
 // Chat clínico: retrieval + geração de resposta em linguagem natural (requer autenticação)
 router.post('/chat', authenticateToken, askClinicalChat);
+router.post('/chat/agents', authenticateToken, askClinicalAgentsChat);
 
 // Estatísticas do RAG (admin only)
 router.get('/stats', authenticateToken, requireRole('admin'), getRAGStats);

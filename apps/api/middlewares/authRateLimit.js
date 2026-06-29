@@ -1,4 +1,5 @@
 const { rateLimit } = require('express-rate-limit');
+const { audit } = require('../services/auditService');
 
 function positiveInteger(value, fallback) {
   const parsed = Number(value);
@@ -28,6 +29,15 @@ function createAuthLimiters(options = {}) {
     legacyHeaders: false,
     message: {
       error: 'Muitas tentativas. Tente novamente mais tarde.',
+    },
+    handler(req, res, _next, options) {
+      audit(req, {
+        action: 'USER_LOGIN_BLOCKED',
+        resource: 'users',
+        outcome: 'FAILURE',
+        detail: { path: req.originalUrl, method: req.method },
+      });
+      return res.status(options.statusCode).json(options.message);
     },
   };
 
