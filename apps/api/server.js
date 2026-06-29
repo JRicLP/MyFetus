@@ -96,6 +96,8 @@ const doctorPatientLinksRoutes = require('./routes/doctorPatientLinks');
 const syncRoutes = require('./routes/sync');
 const internalLoincRoutes = require('./routes/internalLoinc');
 const ragRoutes = require('./routes/rag');
+const growthRoutes = require('./routes/growth');
+const clinicalHistoryRoutes = require('./routes/clinicalHistory');
 const { startDocumentTextExtractionWorker } = require('./workers/pdfWorker');
 const agentRoutes = require('./routes/agent');
 const auditRoutes = require('./routes/audit');
@@ -113,6 +115,8 @@ app.use('/api/internal/loinc', internalLoincRoutes);
 app.use('/api/internal/rag', ragRoutes);
 app.use('/api/agent', agentRoutes);
 app.use('/api/admin/audit', auditRoutes);
+app.use('/api/growth', growthRoutes);
+app.use('/api/history', clinicalHistoryRoutes);
 
 //Rota de teste (para verificar se o backend está no ar)
 app.get('/ping', (req, res) => {

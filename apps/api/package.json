@@ -40,6 +40,8 @@
     "test:stress:integration": "node ./tests/stressIntegration.test.js --integration",
     "test:generation-service": "node --test ./tests/generationService.test.js",
     "test:agent-controller": "node --test ./tests/agentController.test.js"
+    "test:hadlockCalculator": "node ./tests/hadlockCalculator.test.js",
+    "test:clinical-history": "node ./tests/clinicalHistoryService.test.js"
   },
   "dependencies": {
     "@google/genai": "^2.10.0",
