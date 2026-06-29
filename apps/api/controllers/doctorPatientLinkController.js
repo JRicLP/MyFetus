@@ -5,6 +5,7 @@
  * acessar (ver `utils/clinicalAccess.js`).
  */
 const client = require('../backend');
+const { audit } = require('../services/auditService');
 
 /**
  * Função 1
@@ -89,6 +90,14 @@ const createLink = async (req, res) => {
       `,
       [req.user.id, pregnant_id]
     );
+
+    audit(req, {
+      action: 'DOCTOR_PATIENT_LINKED',
+      resource: 'doctor_patient_links',
+      resource_id: result.rows[0].id,
+      outcome: 'SUCCESS',
+      detail: { pregnant_id },
+    });
 
     res.status(201).json(result.rows[0]);
   } catch (err) {

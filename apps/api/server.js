@@ -99,6 +99,8 @@ const ragRoutes = require('./routes/rag');
 const growthRoutes = require('./routes/growth');
 const clinicalHistoryRoutes = require('./routes/clinicalHistory');
 const { startDocumentTextExtractionWorker } = require('./workers/pdfWorker');
+const agentRoutes = require('./routes/agent');
+const auditRoutes = require('./routes/audit');
 
 //Prefixo /api para padronização das rotas
 app.use('/api/users', userRoutes);
@@ -111,6 +113,8 @@ app.use('/api/doctor-patient-links', doctorPatientLinksRoutes);
 app.use('/api/sync', syncRoutes);
 app.use('/api/internal/loinc', internalLoincRoutes);
 app.use('/api/internal/rag', ragRoutes);
+app.use('/api/agent', agentRoutes);
+app.use('/api/admin/audit', auditRoutes);
 app.use('/api/growth', growthRoutes);
 app.use('/api/history', clinicalHistoryRoutes);
 

@@ -11,12 +11,14 @@ import {
   ALTURA_UTERINA_P10,
   ALTURA_UTERINA_P90,
   ALTURA_UTERINA_CHART_DOMAIN,
+  clampChartPoint,
   classificarAlturaUterinaPorSemana,
 } from '../utils/growthChartData';
 
 type Props = {
   week: number;
   alturaUterina: number;
+  historicalData?: Array<{ week: number; alturaUterina: number }>;
 };
 
 const COLORS = {
@@ -34,10 +36,20 @@ const bandData = ALTURA_UTERINA_P90.map((point, index) => ({
   y: point.value,
 }));
 
-export default function UterineHeightChart({ week, alturaUterina }: Props) {
+export default function UterineHeightChart({ week, alturaUterina, historicalData = [] }: Props) {
   const screenWidth = Dimensions.get('window').width;
   const chartWidth = Math.min(screenWidth - 40, 420);
   const classificacao = alturaUterina > 0 ? classificarAlturaUterinaPorSemana(week, alturaUterina) : null;
+  const currentPoint = alturaUterina > 0
+    ? clampChartPoint({ week, value: alturaUterina }, ALTURA_UTERINA_CHART_DOMAIN)
+    : null;
+  const historyPoints = historicalData
+    .filter((point) => point.alturaUterina > 0)
+    .slice(-200)
+    .map((point) => clampChartPoint(
+      { week: point.week, value: point.alturaUterina },
+      ALTURA_UTERINA_CHART_DOMAIN
+    ));
 
   return (
     <View style={styles.container}>
@@ -65,9 +77,25 @@ export default function UterineHeightChart({ week, alturaUterina }: Props) {
           style={{ data: { stroke: COLORS.line, strokeWidth: 1.5 } }}
         />
 
-        {alturaUterina > 0 && (
+        {historyPoints.length > 0 && (
+          <VictoryLine
+            data={historyPoints}
+            interpolation="linear"
+            style={{ data: { stroke: COLORS.point, strokeWidth: 2, opacity: 0.45 } }}
+          />
+        )}
+
+        {historyPoints.length > 0 && (
           <VictoryScatter
-            data={[{ x: week, y: alturaUterina }]}
+            data={historyPoints}
+            size={3}
+            style={{ data: { fill: COLORS.point, opacity: 0.55 } }}
+          />
+        )}
+
+        {currentPoint && (
+          <VictoryScatter
+            data={[currentPoint]}
             size={6}
             style={{ data: { fill: '#FFFFFF', stroke: COLORS.point, strokeWidth: 3 } }}
           />

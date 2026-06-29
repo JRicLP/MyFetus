@@ -5,16 +5,20 @@
  * O modelo é carregado uma vez e reaproveitado nas próximas chamadas.
  */
 
-const DEFAULT_MODEL = process.env.EMBEDDING_MODEL || 'Xenova/multilingual-e5-small';
-const DEFAULT_DIMENSION = Number(process.env.EMBEDDING_DIMENSION || 384);
+const DEFAULT_MODEL = 'Xenova/multilingual-e5-small';
+const DEFAULT_DIMENSION = 384; 
 
 let extractorPromise = null;
 
 async function getExtractor() {
   if (!extractorPromise) {
-    // Dynamic import porque @huggingface/transformers usa ESM.
+    // 2. Adicione log para ver o que ele ESTÁ a carregar
+    console.log("DEBUG: Iniciando carregamento do modelo:", DEFAULT_MODEL);
+    
     extractorPromise = import('@huggingface/transformers')
-      .then(({ pipeline }) => pipeline('feature-extraction', DEFAULT_MODEL));
+      .then(({ pipeline }) => {
+        return pipeline('feature-extraction', DEFAULT_MODEL);
+      });
   }
 
   return extractorPromise;
@@ -46,10 +50,14 @@ async function generateEmbedding(text, inputType = 'passage') {
 
   const embedding = Array.from(output.data);
 
+  // LOG DE SEGURANÇA
+  console.log("DEBUG INTERNO: Modelo usado:", DEFAULT_MODEL);
+  console.log("DEBUG INTERNO: Dimensão calculada:", embedding.length);
+  console.log("DEBUG INTERNO: Dimensão esperada:", DEFAULT_DIMENSION);
+
   if (embedding.length !== DEFAULT_DIMENSION) {
-    throw new Error(
-      `Dimensão inesperada do embedding: ${embedding.length}. Esperado: ${DEFAULT_DIMENSION}.`
-    );
+    // Se entrar aqui, ele vai atirar o erro que esperávamos
+    throw new Error(`DIMENSÃO ERRADA: Recebi ${embedding.length}, esperava ${DEFAULT_DIMENSION}`);
   }
 
   return embedding;

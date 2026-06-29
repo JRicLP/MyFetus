@@ -10,6 +10,7 @@ const {
   findPregnantById,
 } = require('../utils/clinicalAccess');
 const logger = require('../utils/logger');
+const { audit } = require('../services/auditService');
 
 function ensureAuthenticated(req, res) {
   if (!req.user) {
@@ -146,6 +147,13 @@ const updatePregnant = async (req, res) => {
     if (!result.rows[0]) {
       return res.status(404).json({ error: 'Gestante nao encontrada' });
     }
+    audit(req, {
+      action: 'PREGNANT_UPDATED',
+      resource: 'pregnants',
+      resource_id: id,
+      outcome: 'SUCCESS',
+      detail: { fields: Object.keys(updateData) },
+    });
     return res.json(cryptoService.decryptRecord(result.rows[0], 'pregnants'));
   } catch (error) {
     logger.error('Erro ao atualizar gestante', {

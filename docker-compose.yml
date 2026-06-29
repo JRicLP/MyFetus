@@ -42,7 +42,6 @@ services:
     environment:
       PG_HOST: db
       PG_PORT: 5432
-
     ports:
       - "3000:3000"
     command: ["node", "server.js"]

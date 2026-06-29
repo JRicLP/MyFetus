@@ -120,6 +120,7 @@ async function queryVectors(vector, options = {}) {
     vector,
     topK,
     includeMetadata,
+    includeValues: true,
     filter: filter && Object.keys(filter).length > 0 ? filter : undefined
   });
 }

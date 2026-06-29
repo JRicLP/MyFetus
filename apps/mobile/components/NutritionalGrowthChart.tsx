@@ -12,12 +12,14 @@ import {
   IMC_ADEQUADO_SOBREPESO,
   IMC_SOBREPESO_OBESIDADE,
   IMC_CHART_DOMAIN,
+  clampChartPoint,
   classificarIMCPorSemana,
 } from '../utils/growthChartData';
 
 type Props = {
   week: number;
   imc: number;
+  historicalData?: Array<{ week: number; imc: number }>;
 };
 
 const COLORS = {
@@ -40,10 +42,15 @@ const maxLine = IMC_CHART_DOMAIN.y[1];
 const baixoPesoFloor = IMC_BAIXO_PESO_ADEQUADO.map((p) => ({ week: p.week, value: minLine }));
 const obesidadeCeil = IMC_SOBREPESO_OBESIDADE.map((p) => ({ week: p.week, value: maxLine }));
 
-export default function NutritionalGrowthChart({ week, imc }: Props) {
+export default function NutritionalGrowthChart({ week, imc, historicalData = [] }: Props) {
   const screenWidth = Dimensions.get('window').width;
   const chartWidth = Math.min(screenWidth - 40, 420);
   const classificacao = imc > 0 ? classificarIMCPorSemana(week, imc) : null;
+  const currentPoint = imc > 0 ? clampChartPoint({ week, value: imc }, IMC_CHART_DOMAIN) : null;
+  const historyPoints = historicalData
+    .filter((point) => point.imc > 0)
+    .slice(-200)
+    .map((point) => clampChartPoint({ week: point.week, value: point.imc }, IMC_CHART_DOMAIN));
 
   return (
     <View style={styles.container}>
@@ -85,9 +92,25 @@ export default function NutritionalGrowthChart({ week, imc }: Props) {
           />
         ))}
 
-        {imc > 0 && (
+        {historyPoints.length > 0 && (
+          <VictoryLine
+            data={historyPoints}
+            interpolation="linear"
+            style={{ data: { stroke: COLORS.point, strokeWidth: 2, opacity: 0.45 } }}
+          />
+        )}
+
+        {historyPoints.length > 0 && (
           <VictoryScatter
-            data={[{ x: week, y: imc }]}
+            data={historyPoints}
+            size={3}
+            style={{ data: { fill: COLORS.point, opacity: 0.55 } }}
+          />
+        )}
+
+        {currentPoint && (
+          <VictoryScatter
+            data={[currentPoint]}
             size={6}
             style={{ data: { fill: '#FFFFFF', stroke: COLORS.point, strokeWidth: 3 } }}
           />
