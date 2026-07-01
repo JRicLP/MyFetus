@@ -91,6 +91,14 @@ const createLink = async (req, res) => {
       [req.user.id, pregnant_id]
     );
 
+    audit(req, {
+      action: 'DOCTOR_PATIENT_LINKED',
+      resource: 'doctor_patient_links',
+      resource_id: result.rows[0].id,
+      outcome: 'SUCCESS',
+      detail: { pregnant_id },
+    });
+
     res.status(201).json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });

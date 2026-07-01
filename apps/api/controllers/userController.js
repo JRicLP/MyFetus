@@ -7,6 +7,7 @@ const {
   normalizeEmail,
 } = require('../services/emailLookupService');
 const logger = require('../utils/logger');
+const { audit } = require('../services/auditService');
 const updateEntity = require('../utils/updateEntity');
 const {
   PUBLIC_REGISTRATION_ROLE,
@@ -164,6 +165,14 @@ const createUser = async (req, res) => {
     ]);
     await dbClient.query('COMMIT');
 
+    audit(req, {
+      action: 'USER_CREATED',
+      resource: 'users',
+      resource_id: result.rows[0].id,
+      outcome: 'SUCCESS',
+      detail: { role: PUBLIC_REGISTRATION_ROLE, email: normalizedEmail },
+    });
+
     return res.status(201).json(sanitizeUser(decryptUser(result.rows[0])));
   } catch (error) {
     if (dbClient) {
@@ -176,6 +185,12 @@ const createUser = async (req, res) => {
     logger.error('Erro ao criar usuario', {
       details: error.message,
       email,
+    });
+    audit(req, {
+      action: 'USER_CREATED',
+      resource: 'users',
+      outcome: 'FAILURE',
+      detail: { email, reason: error.code === '23505' ? 'duplicate_email' : error.message },
     });
     if (error.code === '23505') {
       return res.status(409).json({ error: 'Email ja cadastrado' });
@@ -258,6 +273,13 @@ const updateUser = async (req, res) => {
       internalAllowedFields
     );
     if (!updated) return res.status(404).send('Usuario nao encontrado');
+    audit(req, {
+      action: 'USER_UPDATED',
+      resource: 'users',
+      resource_id: targetUserId,
+      outcome: 'SUCCESS',
+      detail: { fields: Object.keys(updateData) },
+    });
     return res.json(sanitizeUser(decryptUser(updated)));
   } catch (error) {
     logger.error('Erro ao atualizar usuario', {
@@ -297,6 +319,12 @@ const loginUser = async (req, res) => {
       !storedUser.is_active ||
       !(await bcrypt.compare(password, storedUser.password))
     ) {
+      audit(req, {
+        action: 'USER_LOGIN',
+        resource: 'users',
+        outcome: 'FAILURE',
+        detail: { email, reason: 'invalid_credentials' },
+      });
       return res.status(401).json({ error: 'Login ou senha invalidos' });
     }
 
@@ -306,6 +334,15 @@ const loginUser = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
     );
+    audit(req, {
+      action: 'USER_LOGIN',
+      resource: 'users',
+      resource_id: user.id,
+      actor_id: user.id,
+      actor_role: user.role,
+      outcome: 'SUCCESS',
+      detail: { role: user.role },
+    });
     return res.status(200).json({
       message: 'Login bem-sucedido',
       token,
@@ -319,6 +356,12 @@ const loginUser = async (req, res) => {
     });
   } catch (error) {
     logger.error('Erro no login', { details: error.message });
+    audit(req, {
+      action: 'USER_LOGIN',
+      resource: 'users',
+      outcome: 'FAILURE',
+      detail: { email, reason: error.message },
+    });
     return res.status(500).json({ error: 'Erro no servidor' });
   }
 };

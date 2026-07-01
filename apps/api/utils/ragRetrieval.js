@@ -81,60 +81,66 @@ function generateQueryEmbedding(query) {
  * @param {Object} filtros - Filtros opcionais { especialidade, fonte, tema }
  * @returns {Object} Resultado estruturado com ranking
  */
-function semanticSearch(query, chunks, topK = 5, filtros = {}) {
+async function semanticSearch(query, queryEmbedding, chunks = [], topK = 5, filtros = {}) {
+  console.log("DEBUG: Iniciando busca com query:", query);
+  
+  // 1. Definições iniciais de escopo
   const startTime = Date.now();
+  let resultados = []; // Declarada no escopo principal
 
+  // 2. Validação básica
   if (!query || query.trim().length === 0) {
-    return {
-      query,
-      resultados: [],
-      total: 0,
-      tempo_ms: Date.now() - startTime,
-      erro: 'Query vazia'
-    };
+    return { query, resultados: [], total: 0, tempo_ms: 0, erro: 'Query vazia' };
   }
 
-  // Gera embedding da query
-  const queryEmbedding = generateQueryEmbedding(query);
+  // 3. Garantir chunks (se vazio, retorna cedo para evitar erros)
+  const listaChunks = Array.isArray(chunks) ? chunks : [];
+  if (listaChunks.length === 0) {
+    console.warn("Aviso: semanticSearch recebeu lista de chunks vazia.");
+    return { query, resultados: [], total: 0, tempo_ms: Date.now() - startTime };
+  }
 
-  // Aplica filtros opcionais
-  let chunksFilterados = chunks;
+  // 4. Filtragem
+  let chunksFilterados = listaChunks;
   if (filtros.especialidade) {
-    chunksFilterados = chunksFilterados.filter(
-      c => c.metadados.especialidade.toLowerCase() === filtros.especialidade.toLowerCase()
-    );
+    chunksFilterados = chunksFilterados.filter(c => c.metadados?.especialidade?.toLowerCase() === filtros.especialidade.toLowerCase());
   }
   if (filtros.fonte) {
-    chunksFilterados = chunksFilterados.filter(
-      c => c.metadados.fonte.toLowerCase() === filtros.fonte.toLowerCase()
-    );
+    chunksFilterados = chunksFilterados.filter(c => c.metadados?.fonte?.toLowerCase() === filtros.fonte.toLowerCase());
   }
   if (filtros.tema) {
-    chunksFilterados = chunksFilterados.filter(
-      c => c.metadados.tema.toLowerCase() === filtros.tema.toLowerCase()
-    );
+    chunksFilterados = chunksFilterados.filter(c => c.metadados?.tema?.toLowerCase() === filtros.tema.toLowerCase());
   }
 
-  // Calcula similaridade para cada chunk
+  // const queryEmbedding = generateQueryEmbedding(query);
+
+  // Adicione isto no seu ragRetrieval.js antes de .map()
+  console.log("DEBUG: Dimensão da Query Embedding:", queryEmbedding.length);
+  console.log("DEBUG: Dimensão do Chunk Embedding:", chunks[0].embedding.length);
+
+  // 5. Embedding e Similaridade (Declarados aqui)
   const resultadosComScore = chunksFilterados.map(chunk => ({
     chunk,
-    relevancia: cosineSimilarity(queryEmbedding, chunk.embedding)
+    // Proteção: Se embedding não existir, usa um vetor de zeros ou pula o cálculo
+    relevancia: chunk.embedding ? cosineSimilarity(queryEmbedding, chunk.embedding) : 0
   }));
 
-  // Ordena por relevância (decrescente) e pega top K
-  const resultadosOrdenados = resultadosComScore
+  // 6. Ordenação (Agora resultadosOrdenados está sempre definido)
+  const resultadosOrdenados = (resultadosComScore || [])
     .sort((a, b) => b.relevancia - a.relevancia)
     .slice(0, topK);
 
-  // Formata resposta
-  const resultados = resultadosOrdenados.map(({ chunk, relevancia }) => ({
+  // 7. Mapeamento final
+  resultados = resultadosOrdenados.map(({ chunk, relevancia }) => ({
     trecho: chunk.texto,
-    fonte: chunk.metadados.fonte,
-    especialidade: chunk.metadados.especialidade,
-    tema: chunk.metadados.tema,
+    fonte: chunk.metadados?.fonte || 'Desconhecido',
+    especialidade: chunk.metadados?.especialidade || 'Geral',
+    tema: chunk.metadados?.tema || 'Geral',
     relevancia: Number(normalizeSimilarity(relevancia).toFixed(4)),
     documento_id: chunk.id
   }));
+
+  console.log(`Busca finalizada: ${resultados.length} resultados encontrados.`);
 
   return {
     query,
@@ -150,6 +156,10 @@ function semanticSearch(query, chunks, topK = 5, filtros = {}) {
  * @returns {Object} Estatísticas de disponibilidade
  */
 function getChunkStats(chunks) {
+  if (!chunks) { 
+    return { totalChunks: 0, status: 'Não inicializado' };
+  }
+
   const especialidades = new Set();
   const fontes = new Set();
   const temas = new Set();

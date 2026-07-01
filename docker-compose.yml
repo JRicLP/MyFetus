@@ -14,6 +14,7 @@ services:
       - ./apps/api/db/create_tables.sql:/docker-entrypoint-initdb.d/1_create_tables.sql:ro
       - ./apps/api/db/triggers.sql:/docker-entrypoint-initdb.d/2_triggers.sql:ro
       - ./apps/api/db/migration.sql:/docker-entrypoint-initdb.d/3_migration.sql:ro
+      - ./apps/api/db/migration_sprint6_history.sql:/docker-entrypoint-initdb.d/4_migration_sprint6_history.sql:ro
       - ./apps/api/db/doctor_patient_links.sql:/docker-entrypoint-initdb.d/4_doctor_patient_links.sql:ro
       - ./apps/api/db/migration_security_baseline.sql:/docker-entrypoint-initdb.d/5_security_baseline.sql:ro
       - ./apps/api/db/migration_aes_encryption.sql:/docker-entrypoint-initdb.d/6_aes_encryption.sql:ro
@@ -41,7 +42,6 @@ services:
     environment:
       PG_HOST: db
       PG_PORT: 5432
-
     ports:
       - "3000:3000"
     command: ["node", "server.js"]

@@ -61,4 +61,17 @@ assert.strictEqual(recordSanitized.name, 'Maria d. S. S.');
 assert.strictEqual(recordSanitized.email, 'm***s@e***');
 assert.ok(recordSanitized.birthdate.includes('**'));
 
+const additionalLLMCases = [
+  ['Meu CPF é 123.456.789-00, qual vacina tomar?', 'Meu CPF é [CPF], qual vacina tomar?'],
+  ['Pode me ajudar, meu email é maria@gmail.com', 'Pode me ajudar, meu email é [EMAIL]'],
+  ['Ligue para (81) 99999-8888 para confirmar', 'Ligue para [TELEFONE] para confirmar'],
+  ['Nasci em 15/03/1990, tenho risco de diabetes?', 'Nasci em [DATA], tenho risco de diabetes?'],
+  ['Meu médico é CRM 12345-PE', 'Meu médico é [CRM]'],
+  ['Nenhum dado sensível aqui', 'Nenhum dado sensível aqui'],
+];
+
+for (const [input, expected] of additionalLLMCases) {
+  assert.strictEqual(sanitizeForLLM(input), expected);
+}
+
 console.log('\nOK: sanitização de logs e LLM validada com sucesso.');
