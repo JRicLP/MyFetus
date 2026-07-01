@@ -35,6 +35,7 @@ type Patient = {
 export default function DashboardScreen() {
   const router = useRouter();
   const [doctorName, setDoctorName] = useState('Dr.');
+  const [isAdmin, setIsAdmin] = useState(false);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,12 +58,13 @@ export default function DashboardScreen() {
     try {
       setLoading(true);
 
-      // 1. Nome do Médico
+      // 1. Nome do Médico e papel (admin vê opções extras)
       const userDataString = await AsyncStorage.getItem('userData');
       if (userDataString) {
         const userData = JSON.parse(userDataString);
         const firstName = userData.name.split(' ')[0];
         setDoctorName(`Dr. ${firstName}`);
+        setIsAdmin(userData.role === 'admin');
       }
 
       // 2. Lista de Pacientes (API Melhorada)
@@ -97,6 +99,10 @@ export default function DashboardScreen() {
 
   const handleAddPatient = () => {
     router.push('/doctor/vincular-paciente');
+  };
+
+  const handleAddDoctor = () => {
+    router.push('/CadastroMedico');
   };
 
   const handleAlertPress = (patientId: string) => {
@@ -169,6 +175,11 @@ export default function DashboardScreen() {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Olá {doctorName}!</Text>
           <View style={styles.headerActions}>
+            {isAdmin && (
+              <TouchableOpacity onPress={handleAddDoctor} style={styles.headerActionButton}>
+                <Ionicons name="medkit-outline" size={26} color="#886aea" />
+              </TouchableOpacity>
+            )}
             <TouchableOpacity onPress={handleAddPatient} style={styles.headerActionButton}>
               <Ionicons name="person-add-outline" size={26} color="#886aea" />
             </TouchableOpacity>

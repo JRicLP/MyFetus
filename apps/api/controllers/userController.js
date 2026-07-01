@@ -373,4 +373,5 @@ module.exports = {
   updateUser,
   deleteUser,
   loginUser,
+  findUserByEmail,
 };
