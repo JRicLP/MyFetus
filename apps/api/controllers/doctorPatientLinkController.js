@@ -5,6 +5,8 @@
  * acessar (ver `utils/clinicalAccess.js`).
  */
 const client = require('../backend');
+const cryptoService = require('../services/cryptoService');
+const { findUserByEmail } = require('./userController');
 
 /**
  * Função 1
@@ -25,31 +27,30 @@ const searchPatientByEmail = async (req, res) => {
   }
 
   try {
-    const result = await client.query(
-      `
-      SELECT
-        p.id AS pregnant_id,
-        u.name AS patient_name,
-        u.email AS patient_email,
-        EXISTS (
-          SELECT 1 FROM doctor_patient_links dpl
-          WHERE dpl.doctor_id = $2
-            AND dpl.pregnant_id = p.id
-            AND dpl.status = 'active'
-        ) AS already_linked
-      FROM pregnants p
-      JOIN users u ON u.id = p.user_id
-      WHERE u.email = $1
-        AND u.role IN ('gestante', 'user')
-      `,
-      [email, req.user.id]
-    );
+    // `email` é criptografado em repouso: não dá pra filtrar com `WHERE email = $1`.
+    // findUserByEmail busca pelo hash de lookup (com fallback p/ contas antigas).
+    const user = await findUserByEmail(email);
 
-    if (result.rows.length === 0) {
+    if (!user || user.role !== 'gestante' || !user.pregnant_id) {
       return res.status(404).json({ error: 'Nenhuma gestante encontrada com esse email' });
     }
 
-    res.json(result.rows[0]);
+    const decrypted = cryptoService.decryptRecord(user, 'users');
+
+    const linkResult = await client.query(
+      `SELECT EXISTS (
+         SELECT 1 FROM doctor_patient_links
+         WHERE doctor_id = $1 AND pregnant_id = $2 AND status = 'active'
+       ) AS already_linked`,
+      [req.user.id, user.pregnant_id]
+    );
+
+    res.json({
+      pregnant_id: user.pregnant_id,
+      patient_name: decrypted.name,
+      patient_email: decrypted.email,
+      already_linked: linkResult.rows[0].already_linked,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
