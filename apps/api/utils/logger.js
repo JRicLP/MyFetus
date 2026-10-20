@@ -1,24 +1,41 @@
 const { sanitizeForLog } = require('./piiSanitizer');
 
-const stringifyMeta = (meta) => {
-  if (meta === undefined || meta === null) {
-    return '';
+const levelToSeverity = {
+  info: 'INFO',
+  warn: 'WARNING',
+  error: 'ERROR',
+};
+
+const formatLogRecord = (level, message, meta) => {
+  const timestamp = new Date().toISOString();
+  const severity = levelToSeverity[level] || 'INFO';
+
+  let sanitizedMeta = {};
+  if (meta !== undefined && meta !== null) {
+    if (typeof meta === 'object') {
+      try {
+        sanitizedMeta = sanitizeForLog(meta);
+      } catch (err) {
+        sanitizedMeta = { error: 'failed_to_sanitize_log_meta' };
+      }
+    } else {
+      sanitizedMeta = { details: String(meta) };
+    }
   }
 
-  if (typeof meta === 'string') {
-    return meta;
-  }
+  const logObject = {
+    ...(typeof sanitizedMeta === 'object' && sanitizedMeta !== null ? sanitizedMeta : { meta: sanitizedMeta }),
+    timestamp,
+    severity,
+    level,
+    message: typeof message === 'string' ? message : String(message),
+  };
 
-  try {
-    return JSON.stringify(sanitizeForLog(meta));
-  } catch (error) {
-    return JSON.stringify({ error: 'failed_to_stringify_log_meta' });
-  }
+  return JSON.stringify(logObject);
 };
 
 const write = (level, message, meta) => {
-  const suffix = stringifyMeta(meta);
-  const line = suffix ? `${message} ${suffix}` : message;
+  const line = formatLogRecord(level, message, meta);
 
   if (level === 'error') {
     console.error(line);

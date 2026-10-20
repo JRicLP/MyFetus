@@ -1,0 +1,158 @@
+name: CD staging
+
+on:
+  push:
+    branches: [main]
+    # Documentation, mobile-only and unrelated repository changes do not
+    # produce a new API image and must not start a cloud deployment.
+    paths:
+      - 'apps/api/**'
+      - '.github/workflows/cd-staging.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: cd-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build, migrate and deploy staging
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+    env:
+      PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      REGION: ${{ vars.GCP_REGION }}
+      WIF_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      DEPLOY_SERVICE_ACCOUNT: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+      SERVICE_NAME: ${{ vars.GCP_CLOUD_RUN_SERVICE }}
+      MIGRATION_JOB: ${{ vars.GCP_MIGRATION_JOB }}
+      STAGING_API_URL: ${{ vars.STAGING_API_URL }}
+      IMAGE_REPOSITORY: ${{ vars.GCP_ARTIFACT_REPOSITORY }}
+    steps:
+      - name: Validate deployment configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            PROJECT_ID
+            REGION
+            WIF_PROVIDER
+            DEPLOY_SERVICE_ACCOUNT
+            SERVICE_NAME
+            MIGRATION_JOB
+            STAGING_API_URL
+            IMAGE_REPOSITORY
+          )
+          for variable in "${required[@]}"; do
+            if [[ -z "${!variable:-}" ]]; then
+              echo "Missing required GitHub environment variable: ${variable}" >&2
+              exit 1
+            fi
+          done
+
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Authenticate to Google Cloud with OIDC
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.DEPLOY_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Build and publish image
+        shell: bash
+        env:
+          IMAGE: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.IMAGE_REPOSITORY }}/api:${{ github.sha }}
+        run: |
+          set -euo pipefail
+          gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+          docker build --file apps/api/Dockerfile --tag "${IMAGE}" apps/api
+          docker push "${IMAGE}"
+          echo "Published ${IMAGE}"
+
+      - name: Run database migrations
+        shell: bash
+        env:
+          IMAGE: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.IMAGE_REPOSITORY }}/api:${{ github.sha }}
+        run: |
+          set -euo pipefail
+          gcloud run jobs update "${MIGRATION_JOB}" \
+            --image="${IMAGE}" \
+            --region="${REGION}" \
+            --quiet
+          gcloud run jobs execute "${MIGRATION_JOB}" \
+            --region="${REGION}" \
+            --wait \
+            --quiet
+
+      - name: Deploy API revision
+        shell: bash
+        env:
+          IMAGE: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.IMAGE_REPOSITORY }}/api:${{ github.sha }}
+        run: |
+          set -euo pipefail
+          gcloud run deploy "${SERVICE_NAME}" \
+            --image="${IMAGE}" \
+            --region="${REGION}" \
+            --quiet
+
+      - name: Run HTTPS smoke tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          API_URL="${STAGING_API_URL%/}"
+          # Liveness probe
+          curl --fail --silent --show-error --location \
+            --retry 10 --retry-delay 3 --retry-all-errors \
+            "${API_URL}/ping"
+
+          # Readiness probe (valida conexao ativa com PostgreSQL)
+          health_response="${RUNNER_TEMP}/health-response.json"
+          curl --fail --silent --show-error --location \
+            --retry 10 --retry-delay 3 --retry-all-errors \
+            --output "${health_response}" \
+            "${API_URL}/health"
+          node -e '
+            const fs = require("fs");
+            const res = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            if (res.status === "unhealthy" || !res.checks || res.checks.database?.status !== "up") {
+              console.error("Readiness probe reported failure or database down:", JSON.stringify(res));
+              process.exit(1);
+            }
+          ' "${health_response}"
+
+
+          growth_response="${RUNNER_TEMP}/growth-response.json"
+          growth_status="$(curl --silent --show-error --location \
+            --output "${growth_response}" --write-out '%{http_code}' \
+            "${API_URL}/api/growth/chart")"
+          # The endpoint is public in the current staging revision. It may
+          # become JWT-protected when E1-05 is promoted, so both outcomes are
+          # valid here; transport/server errors are not.
+          if [[ "${growth_status}" != "200" && "${growth_status}" != "401" ]]; then
+            echo "Expected /api/growth/chart to return 200 or 401, got ${growth_status}" >&2
+            cat "${growth_response}" >&2
+            exit 1
+          fi
+
+          response_file="${RUNNER_TEMP}/protected-route-response.json"
+          status_code="$(curl --silent --show-error --location \
+            --output "${response_file}" --write-out '%{http_code}' \
+            "${API_URL}/api/users")"
+          if [[ "${status_code}" != "401" ]]; then
+            echo "Expected /api/users without JWT to return 401, got ${status_code}" >&2
+            cat "${response_file}" >&2
+            exit 1
+          fi
+          echo "HTTPS smoke tests passed"

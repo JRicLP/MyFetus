@@ -149,8 +149,9 @@ async function ingestSingleDocument(fileName) {
   const filePath = path.join(GUIDELINES_DIR, fileName);
   const documentInfo = getDocumentInfo(fileName);
 
-  console.log(`\nIniciando documento: ${fileName}`);
-  console.log(`Fonte: ${documentInfo.source}`);
+  const logger = require('../utils/logger');
+  logger.info('Ingestão RAG: documento iniciado');
+  logger.info('Ingestão RAG: fonte');
 
   const text = await extractTextFromPdf(filePath, fileName);
 
@@ -161,14 +162,14 @@ async function ingestSingleDocument(fileName) {
     documentType: documentInfo.documentType,
   });
 
-  console.log(`Chunks gerados: ${chunks.length}`);
+  logger.info('Ingestão RAG: chunks gerados');
 
   const records = [];
 
   for (let index = 0; index < chunks.length; index += 1) {
     const chunk = chunks[index];
-
-    console.log(`Gerando embedding ${index + 1}/${chunks.length}...`);
+    const logger = require('../utils/logger');
+    logger.info('Ingestão RAG: gerando embedding');
 
     const embedding = await generateEmbedding(chunk.text, 'passage');
     const record = buildPineconeRecord(chunk, embedding, documentInfo);
@@ -176,12 +177,13 @@ async function ingestSingleDocument(fileName) {
     records.push(record);
   }
 
-  console.log('Enviando vetores para o Pinecone...');
+  
+  logger.info('Ingestão RAG: enviando vetores');
 
   const result = await upsertVectors(records, PINECONE_NAMESPACE);
 
-  console.log(`Documento indexado: ${fileName}`);
-  console.log(`Vetores enviados: ${result.upsertedCount}`);
+  logger.info('Ingestão RAG: documento indexado');
+  logger.info('Ingestão RAG: vetores enviados');
 
   return {
     fileName,
@@ -199,8 +201,9 @@ async function ingestGuidelines() {
     throw new Error(`Nenhum PDF encontrado em ${GUIDELINES_DIR}`);
   }
 
-  console.log(`PDFs encontrados: ${pdfFiles.length}`);
-  console.log(pdfFiles);
+  const logger = require('../utils/logger');
+  logger.info('Ingestão RAG: PDFs encontrados');
+  logger.info('Ingestão RAG: PDFs encontrados', { fileCount: pdfFiles.length });
 
   const results = [];
 

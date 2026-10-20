@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,10 +10,10 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome } from '@expo/vector-icons';
-// import { calculateGestationWeek } from '../utils/gestationWeekCalculator';
-import { getChecklistForWeek, ChecklistItem, checklistData } from '../data/checklistData';
-import { getLastPeriod, calculateGestationWeek, getBabySize, getBabyDescription } from '../../utils/gestationUtils';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ChecklistItem, checklistData } from '../data/checklistData';
+import { getLastPeriod, calculateGestationWeek } from '../../utils/gestationUtils';
+import { useSession } from '@/contexts/SessionContext';
+import { getScopedItem, setScopedItem } from '@/utils/scopedStorage';
 
 const WEB_MAX_WIDTH = 430;
 
@@ -24,97 +24,87 @@ const TRIMESTER_RANGES = {
 };
 
 const CHECKLIST_STATE_KEY = '@myFetus:checklistState';
+const CHECKLIST_SCOPED_KEY = 'checklistState';
+
+function getTrimesterItems(trimester: number, completionState: Record<string, boolean>): ChecklistItem[] {
+  const range = TRIMESTER_RANGES[trimester as keyof typeof TRIMESTER_RANGES];
+  return checklistData
+    .filter((checklist) => {
+      const [start, end] = checklist.weekRange.split('-').map(Number);
+      return start >= range.start && end <= range.end;
+    })
+    .flatMap((checklist) => checklist.items.map((item) => ({
+      ...item,
+      completed: completionState[item.id] || false,
+    })));
+}
 
 export default function ChecklistScreen() {
   const { width: windowWidth, height } = useWindowDimensions();
   const width = Platform.OS === 'web' ? Math.min(windowWidth, WEB_MAX_WIDTH) : windowWidth;
   const styles = React.useMemo(() => createStyles(width, height), [width, height]);
+  const { user } = useSession();
 
-  const [currentWeek, setCurrentWeek] = useState(0);
   const [currentTrimester, setCurrentTrimester] = useState(1);
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
   const [savedState, setSavedState] = useState<Record<string, boolean>>({});
 
   // Carrega o estado salvo do checklist
-  const loadSavedState = async () => {
+  const loadSavedState = useCallback(async () => {
     try {
-      const savedState = await AsyncStorage.getItem(CHECKLIST_STATE_KEY);
+      if (!user) return {};
+      const savedState = await getScopedItem(user.id, CHECKLIST_SCOPED_KEY, CHECKLIST_STATE_KEY);
       if (savedState) {
         const parsedState = JSON.parse(savedState);
         setSavedState(parsedState);
         return parsedState;
       }
-    } catch (error) {
-      console.error('Erro ao carregar estado do checklist:', error);
+    } catch {
+      // erro tratado na UI; sem log para não expor dados
     }
     return {};
-  };
+  }, [user]);
 
   // Salva o estado atual do checklist
-  const saveState = async (itemId: string, completed: boolean) => {
-    try {
-      const newState = {
-        ...savedState,
+  const saveState = useCallback((itemId: string, completed: boolean) => {
+    setSavedState((currentState) => {
+      const nextState = {
+        ...currentState,
         [itemId]: completed
       };
-      setSavedState(newState);
-      await AsyncStorage.setItem(CHECKLIST_STATE_KEY, JSON.stringify(newState));
-    } catch (error) {
-      console.error('Erro ao salvar estado do checklist:', error);
-    }
-  };
+      if (user) {
+        void setScopedItem(user.id, CHECKLIST_SCOPED_KEY, JSON.stringify(nextState)).catch(
+          () => undefined
+        );
+      }
+
+      return nextState;
+    });
+  }, [user]);
 
   useEffect(() => {
     const loadGestationData = async () => {
-      const lastPeriod = await getLastPeriod();
+      if (!user) return;
+      const lastPeriod = await getLastPeriod(user.id);
       if (lastPeriod) {
-        console.log('Checklist - Data última menstruação:', lastPeriod);
         const result = calculateGestationWeek(lastPeriod);
-        console.log('Checklist - Semana calculada:', result.weeks);
-        setCurrentWeek(result.weeks);
-        
-        // Determina o trimestre atual baseado na semana
         const trimester = result.weeks <= 13 ? 1 : result.weeks <= 26 ? 2 : 3;
         setCurrentTrimester(trimester);
-        
-        // Carrega o estado salvo primeiro
-        await loadSavedState();
-        
-        // Carrega os itens do trimestre atual
-        await loadTrimesterItems(trimester);
+
+        const completionState = await loadSavedState();
+        setChecklistItems(getTrimesterItems(trimester, completionState));
       }
     };
 
-    loadGestationData();
-  }, []);
+    void loadGestationData();
+  }, [user, loadSavedState]);
 
-  const loadTrimesterItems = async (trimester: number) => {
-    const range = TRIMESTER_RANGES[trimester as keyof typeof TRIMESTER_RANGES];
-    const items: ChecklistItem[] = [];
-    
-    // Filtra os checklists que estão dentro do trimestre atual
-    const trimesterChecklists = checklistData.filter(checklist => {
-      const [start, end] = checklist.weekRange.split("-").map(Number);
-      return start >= range.start && end <= range.end;
-    });
-    
-    // Adiciona todos os itens dos checklists do trimestre
-    trimesterChecklists.forEach(checklist => {
-      items.push(...checklist.items.map(item => ({
-        ...item,
-        completed: savedState[item.id] || false
-      })));
-    });
-    
-    setChecklistItems(items);
-  };
-
-  const changeTrimester = async (trimester: number) => {
+  const changeTrimester = (trimester: number) => {
     setCurrentTrimester(trimester);
-    await loadTrimesterItems(trimester);
+    setChecklistItems(getTrimesterItems(trimester, savedState));
   };
 
-  const toggleItem = async (id: string) => {
+  const toggleItem = (id: string) => {
     const newItems = checklistItems.map(item => {
       if (item.id === id) {
         const newCompleted = !item.completed;

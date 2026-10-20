@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -71,22 +71,15 @@ export default function GestationInfoScreen() {
 
   const router = useRouter();
   const params = useLocalSearchParams();
-  const [gestationWeeks, setGestationWeeks] = useState(0);
+  const gestationWeeks = params.lastMenstruation
+    ? calculateGestationWeek(params.lastMenstruation as string).weeks
+    : 0;
   
   // Animações para as ondas
-  const wave1Anim = useRef(new Animated.Value(0)).current;
-  const wave2Anim = useRef(new Animated.Value(0)).current;
-  const wave3Anim = useRef(new Animated.Value(0)).current;
-  const rotationAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (params.lastMenstruation) {
-      console.log('Gestation Info - Data última menstruação:', params.lastMenstruation);
-      const result = calculateGestationWeek(params.lastMenstruation as string);
-      console.log('Gestation Info - Semana calculada:', result.weeks);
-      setGestationWeeks(result.weeks);
-    }
-  }, [params.lastMenstruation]);
+  const [wave1Anim] = useState(() => new Animated.Value(0));
+  const [wave2Anim] = useState(() => new Animated.Value(0));
+  const [wave3Anim] = useState(() => new Animated.Value(0));
+  const [rotationAnim] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     const startWaveAnimation = () => {
@@ -127,7 +120,7 @@ export default function GestationInfoScreen() {
     };
 
     startWaveAnimation();
-  }, []);
+  }, [rotationAnim, wave1Anim, wave2Anim, wave3Anim]);
 
   const handleContinue = () => {
     router.replace('/(tabs)');
@@ -365,4 +358,4 @@ const createStyles = (width: number, height: number) => StyleSheet.create({
     fontSize: width * 0.045,
     fontWeight: '500',
   },
-}); 
+});

@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MyFetus — inventário visual atual</title>
+  <style>
+    :root {
+      --ink: #24252d;
+      --muted: #686a73;
+      --paper: #fffdfb;
+      --canvas: #edf7f6;
+      --teal: #087f7b;
+      --teal-soft: #d9f0ed;
+      --coral: #d95f67;
+      --coral-soft: #fde8e5;
+      --blue: #dcecf7;
+      --line: #d8dfdf;
+      --amber: #9b6400;
+      --shadow: 0 14px 36px rgba(27, 65, 64, .12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        linear-gradient(90deg, rgba(8, 127, 123, .045) 1px, transparent 1px),
+        linear-gradient(rgba(8, 127, 123, .045) 1px, transparent 1px),
+        var(--canvas);
+      background-size: 28px 28px;
+      font-family: "Trebuchet MS", "Aptos", sans-serif;
+      line-height: 1.5;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .hero {
+      min-height: 72vh;
+      display: grid;
+      align-items: end;
+      color: white;
+      background:
+        linear-gradient(105deg, rgba(0, 67, 70, .96), rgba(8, 127, 123, .86) 62%, rgba(217, 95, 103, .82)),
+        url("screenshots/inicio-gestante.png") center 28% / cover;
+      border-bottom: 8px solid var(--coral);
+    }
+
+    .hero-inner,
+    main,
+    footer {
+      width: min(1420px, calc(100% - 40px));
+      margin-inline: auto;
+    }
+
+    .hero-inner {
+      padding: 72px 0 46px;
+    }
+
+    .eyebrow {
+      font-size: .76rem;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    h1,
+    h2,
+    h3 {
+      font-family: Georgia, "Times New Roman", serif;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      max-width: 860px;
+      margin: 14px 0 18px;
+      font-size: clamp(2.7rem, 7vw, 6.4rem);
+      line-height: .95;
+    }
+
+    .hero p {
+      max-width: 720px;
+      margin: 0;
+      font-size: clamp(1rem, 2vw, 1.3rem);
+    }
+
+    .stamp {
+      display: inline-block;
+      margin-top: 28px;
+      padding: 9px 12px;
+      border: 1px solid rgba(255, 255, 255, .55);
+      background: rgba(0, 0, 0, .16);
+      font-size: .82rem;
+    }
+
+    main {
+      padding: 44px 0 76px;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      margin-top: -70px;
+      background: var(--line);
+      box-shadow: var(--shadow);
+    }
+
+    .metric {
+      min-width: 0;
+      min-height: 120px;
+      overflow: hidden;
+      padding: 24px;
+      background: var(--paper);
+    }
+
+    .metric strong {
+      display: block;
+      color: var(--teal);
+      font-family: Georgia, serif;
+      font-size: 2rem;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: .86rem;
+    }
+
+    .intro {
+      display: grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap: 48px;
+      padding: 70px 0 36px;
+    }
+
+    .intro h2,
+    .section-head h2 {
+      margin: 0;
+      font-size: clamp(2rem, 4vw, 3.4rem);
+      line-height: 1.05;
+    }
+
+    .intro p {
+      margin: 14px 0 0;
+      color: var(--muted);
+    }
+
+    .notice {
+      align-self: end;
+      padding: 20px;
+      border-left: 5px solid var(--amber);
+      background: #fff7df;
+    }
+
+    .notice strong {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--amber);
+    }
+
+    .toolbar {
+      position: sticky;
+      z-index: 5;
+      top: 0;
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 12px 0;
+      background: rgba(237, 247, 246, .94);
+      backdrop-filter: blur(10px);
+    }
+
+    .filter {
+      flex: 0 0 auto;
+      padding: 9px 14px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      color: var(--ink);
+      background: var(--paper);
+      cursor: pointer;
+    }
+
+    .filter[aria-pressed="true"] {
+      border-color: var(--teal);
+      color: white;
+      background: var(--teal);
+    }
+
+    .flow {
+      padding-top: 62px;
+      scroll-margin-top: 56px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 30px;
+      padding-bottom: 17px;
+      border-bottom: 2px solid var(--ink);
+    }
+
+    .section-head p {
+      max-width: 580px;
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .screen-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+      gap: 26px;
+      padding-top: 26px;
+    }
+
+    .screen {
+      overflow: hidden;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      box-shadow: 0 7px 22px rgba(27, 65, 64, .08);
+    }
+
+    .screen[hidden] {
+      display: none;
+    }
+
+    .screen-visual {
+      position: relative;
+      aspect-ratio: 390 / 844;
+      overflow: hidden;
+      background: var(--blue);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .screen-visual img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+      object-position: top;
+    }
+
+    .screen-visual a {
+      display: block;
+      height: 100%;
+    }
+
+    .badge {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      padding: 5px 8px;
+      border-radius: 3px;
+      color: #fff;
+      background: rgba(36, 37, 45, .86);
+      font-size: .68rem;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .badge.fixture {
+      background: rgba(155, 100, 0, .92);
+    }
+
+    .badge.issue {
+      background: rgba(167, 43, 55, .92);
+    }
+
+    .screen-copy {
+      padding: 18px;
+    }
+
+    .screen-copy h3 {
+      margin: 0 0 7px;
+      font-size: 1.25rem;
+    }
+
+    .route {
+      display: block;
+      overflow-wrap: anywhere;
+      color: var(--teal);
+      font-family: "Courier New", monospace;
+      font-size: .72rem;
+    }
+
+    .screen-copy p {
+      margin: 11px 0 0;
+      color: var(--muted);
+      font-size: .88rem;
+    }
+
+    .observation {
+      padding-top: 11px;
+      border-top: 1px solid var(--line);
+    }
+
+    .observation strong {
+      color: var(--coral);
+    }
+
+    .findings {
+      margin-top: 78px;
+      padding: 38px;
+      color: white;
+      background: #164e4c;
+    }
+
+    .findings h2 {
+      margin-top: 0;
+      font-size: 2.4rem;
+    }
+
+    .finding-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1px;
+      background: rgba(255, 255, 255, .25);
+    }
+
+    .finding {
+      padding: 20px;
+      background: #164e4c;
+    }
+
+    .finding strong {
+      display: block;
+      margin-bottom: 6px;
+      color: #ffd0cb;
+    }
+
+    .brief {
+      margin-top: 38px;
+      padding: 38px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+    }
+
+    .brief h2 {
+      margin-top: 0;
+      font-size: 2.4rem;
+    }
+
+    .brief pre {
+      margin: 0;
+      padding: 22px;
+      white-space: pre-wrap;
+      color: #173e3d;
+      background: var(--teal-soft);
+      border-left: 5px solid var(--teal);
+      font: .9rem/1.6 "Courier New", monospace;
+    }
+
+    footer {
+      padding: 0 0 48px;
+      color: var(--muted);
+      font-size: .8rem;
+    }
+
+    @media (max-width: 780px) {
+      .hero {
+        min-height: 620px;
+      }
+
+      .hero-inner,
+      main,
+      footer {
+        width: min(100% - 24px, 1420px);
+      }
+
+      .summary {
+        grid-template-columns: repeat(2, 1fr);
+        margin-top: -38px;
+      }
+
+      .intro {
+        grid-template-columns: 1fr;
+        gap: 20px;
+        padding-top: 50px;
+      }
+
+      .section-head {
+        display: block;
+      }
+
+      .section-head p {
+        margin-top: 12px;
+      }
+
+      .screen-grid {
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      }
+
+      .finding-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .findings,
+      .brief {
+        padding: 24px 18px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <div class="eyebrow">Estado atual · referência para redesign</div>
+      <h1>MyFetus, tela por tela</h1>
+      <p>Inventário visual do aplicativo móvel em viewport de 390 × 844 px, organizado por jornada e acompanhado de
+        contexto para o Google Stitch.</p>
+      <span class="stamp">29 telas · captura local · setembro de 2026</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="summary" aria-label="Resumo da captura">
+      <div class="metric"><strong>29</strong><span>telas documentadas</span></div>
+      <div class="metric"><strong>5</strong><span>fluxos funcionais</span></div>
+      <div class="metric"><strong>390×844</strong><span>viewport de referência</span></div>
+      <div class="metric"><strong>2 estados</strong><span>real e fictício representativo</span></div>
+    </section>
+
+    <section class="intro">
+      <div>
+        <div class="eyebrow">Como ler</div>
+        <h2>Retrato do produto, não proposta visual</h2>
+        <p>As imagens mostram a implementação atual. Cada cartão registra a rota, o contexto e uma oportunidade de
+          redesign. Clique numa captura para abrir o PNG original.</p>
+      </div>
+      <aside class="notice">
+        <strong>Política de dados</strong>
+        Telas públicas e da gestante foram capturadas no estado local disponível. Telas médicas usam dados fictícios
+        representativos, injetados somente no navegador, sem alteração no código ou banco. A tela de exames da gestante
+        registra o estado vazio real sem API.
+      </aside>
+    </section>
+
+    <nav class="toolbar" aria-label="Filtrar telas">
+      <button class="filter" data-filter="all" aria-pressed="true">Todas</button>
+      <button class="filter" data-filter="auth" aria-pressed="false">Acesso</button>
+      <button class="filter" data-filter="onboarding" aria-pressed="false">Onboarding</button>
+      <button class="filter" data-filter="patient" aria-pressed="false">Gestante</button>
+      <button class="filter" data-filter="doctor" aria-pressed="false">Médico</button>
+      <button class="filter" data-filter="record" aria-pressed="false">Prontuário</button>
+    </nav>
+
+    <div id="inventory"></div>
+
+    <section class="findings">
+      <h2>Leitura visual do estado atual</h2>
+      <div class="finding-grid">
+        <div class="finding"><strong>Identidade fragmentada</strong>Gradientes e transparência no acesso, cartões
+          rosados na gestante e superfícies lilás no médico parecem produtos diferentes.</div>
+        <div class="finding"><strong>Navegação sobrecarregada</strong>A área da gestante expõe seis abas; rótulos
+          apertados e “explore” mantêm uma tela de exemplo do Expo no produto.</div>
+        <div class="finding"><strong>Hierarquia clínica desigual</strong>Alertas têm boa leitura semântica, mas
+          formulários e resumo usam densidade, tipografia e agrupamentos pouco consistentes.</div>
+        <div class="finding"><strong>Estados incompletos</strong>Exames da gestante depende da API e aparece vazio;
+          algumas rotas legadas coexistem com abas atuais.</div>
+        <div class="finding"><strong>Acessibilidade a revisar</strong>Há textos pequenos, contraste baixo em rosa,
+          dependência de cor para status e alvos compactos na barra inferior.</div>
+        <div class="finding"><strong>Oportunidade de sistema</strong>Uma base comum de tokens, componentes clínicos e
+          padrões de estado pode unificar paciente e médico sem apagar suas necessidades distintas.</div>
+      </div>
+    </section>
+
+    <section class="brief">
+      <div class="eyebrow">Prompt de partida</div>
+      <h2>Briefing para o Stitch</h2>
+      <pre>Redesenhe o aplicativo móvel MyFetus a partir das telas anexas, preservando todos os fluxos e conteúdos funcionais apresentados.
+
+Públicos: gestantes em acompanhamento pré-natal e profissionais de saúde. O produto precisa transmitir acolhimento, precisão clínica, privacidade e confiança, sem aparência infantilizada.
+
+Crie um sistema visual único para acesso, jornada da gestante e prontuário médico. Use alto contraste, tipografia legível, alvos de toque de pelo menos 44 px e estados que não dependam apenas de cor. Preserve verde/amarelo/vermelho somente como apoio semântico aos alertas.
+
+Simplifique a navegação da gestante para no máximo cinco destinos principais; remova a tela de exemplo “Explore” e resolva rotas duplicadas. Priorize Início, acompanhamento diário, checklist, exames e conversa. Torne semana gestacional, DPP e próximas ações fáceis de escanear.
+
+No fluxo médico, torne busca e risco dos pacientes imediatamente legíveis. Reorganize o prontuário em seções progressivas, com resumo clínico no topo, edição clara, indicadores persistentes de salvamento e alertas acionáveis. Evite formulários longos sem agrupamento.
+
+Entregue componentes reutilizáveis, estados vazio/carregando/erro/sucesso, navegação, modais e exemplos preenchidos. Considere WCAG AA, linguagem em português do Brasil e viewport base de 390 × 844 px. Não invente novas funções clínicas sem marcá-las como sugestão.</pre>
+    </section>
+  </main>
+
+  <footer>MyFetus · inventário visual local para discussão de redesign · imagens em <strong>screenshots/</strong>
+  </footer>
+
+  <script>
+    const groups = [
+      {
+        id: 'auth', title: 'Acesso e cadastro', description: 'Entrada no produto e criação dos dois perfis.', screens: [
+          ['login', 'Login', '/', 'Acesso com e-mail e senha e atalhos para os cadastros.', 'Simplificar a marca no topo, reforçar contraste e diferenciar melhor as ações de paciente e médico.', 'real'],
+          ['cadastro-paciente', 'Cadastro de paciente', '/CadastroPaciente', 'Criação da conta da gestante.', 'Reduzir carga visual e dividir campos em etapas curtas com validação contextual.', 'real'],
+          ['cadastro-medico', 'Cadastro médico', '/CadastroMedico', 'Criação da conta profissional.', 'Explicitar credenciais profissionais e manter consistência com o cadastro da paciente.', 'real']
+        ]
+      },
+      {
+        id: 'onboarding', title: 'Onboarding da gestante', description: 'Primeiro acesso e definição da gestação acompanhada.', screens: [
+          ['boas-vindas', 'Boas-vindas', '/welcome', 'Apresentação inicial após o cadastro.', 'Dar uma próxima ação inequívoca e reduzir elementos decorativos concorrentes.', 'real'],
+          ['informacao-gestacional', 'Informação gestacional', '/InformacaoGestacional', 'Coleta das datas usadas para calcular a gestação.', 'Explicar DUM e DPP junto aos campos e oferecer ajuda sem texto excessivo.', 'real'],
+          ['outra-gestacao', 'Outra gestação', '/outraGestacao', 'Cadastro de uma nova gestação.', 'Reutilizar o mesmo padrão de formulário e deixar claro o impacto sobre o acompanhamento atual.', 'real']
+        ]
+      },
+      {
+        id: 'patient', title: 'Experiência da gestante', description: 'Acompanhamento cotidiano, exames e conversa.', screens: [
+          ['inicio-gestante', 'Início', '/(tabs)', 'Semana 20, imagem fetal, DPP, tamanho e desenvolvimento.', 'Preservar o foco emocional, mas reduzir a altura da imagem para antecipar ações e conteúdo abaixo.', 'real'],
+          ['agua', 'Água', '/(tabs)/agua', 'Registro e acompanhamento de hidratação.', 'Transformar o objetivo diário em ação de um toque e feedback de progresso acessível.', 'real'],
+          ['checklist', 'Checklist', '/(tabs)/checklist', 'Lista de cuidados organizada por trimestre.', 'Melhorar escaneabilidade, progresso e distinção entre concluído, pendente e recomendado.', 'real'],
+          ['exames-gestante', 'Exames', '/(tabs)/exames', 'Histórico de documentos da paciente no estado local sem API.', 'Criar estado vazio útil, upload evidente e status de análise compreensíveis.', 'issue'],
+          ['chat', 'Chat', '/(tabs)/chat', 'Conversa com o agente e campo de mensagem.', 'Diferenciar orientação geral de aconselhamento clínico e reforçar limites e privacidade.', 'real'],
+          ['explorar', 'Explore (template)', '/(tabs)/explore', 'Tela de exemplo do Expo ainda exposta como sexta aba.', 'Remover do produto e liberar espaço na navegação principal.', 'issue'],
+          ['agua-rota-legada', 'Água (rota legada)', '/agua', 'Versão acessível fora do grupo de abas.', 'Eliminar duplicidade de rota após confirmar qual implementação é canônica.', 'issue']
+        ]
+      },
+      {
+        id: 'doctor', title: 'Experiência médica', description: 'Seleção e vínculo de pacientes.', screens: [
+          ['medico-dashboard', 'Painel médico', '/doctor/dashboard', 'Busca e cartões de pacientes com status de risco.', 'Dar maior peso a risco e pendências clínicas sem depender apenas de ícones e cor.', 'fixture'],
+          ['medico-vincular-paciente', 'Vincular paciente', '/doctor/vincular-paciente', 'Busca por e-mail para criar vínculo médico-paciente.', 'Explicar consentimento, resultado da busca e estados de vínculo existente.', 'fixture']
+        ]
+      },
+      {
+        id: 'record', title: 'Prontuário clínico', description: 'Fluxo longitudinal de consulta, histórico, resumo e alertas.', screens: [
+          ['prontuario-identificacao', 'Identificação', '/doctor/1/identificacao', 'Dados básicos e entrada do prontuário.', 'Adicionar contexto persistente da paciente e progresso entre seções.', 'fixture'],
+          ['prontuario-informacoes-iniciais', 'Informações iniciais', '/doctor/1/informacoes_iniciais', 'Medidas, IMC e sinais maternos.', 'Agrupar métricas, unidades e classificação; destacar valores fora do esperado.', 'fixture'],
+          ['prontuario-grafico', 'Gráfico', '/doctor/1/grafico', 'Acompanhamento visual de evolução.', 'Incluir legenda, referências clínicas e alternativa textual acessível.', 'fixture'],
+          ['prontuario-informacoes-paciente', 'Informações da paciente', '/doctor/1/informacoes_paciente', 'Dados complementares da paciente.', 'Evitar repetição com identificação e indicar campos obrigatórios e salvos.', 'fixture'],
+          ['prontuario-antecedentes-familiares', 'Antecedentes familiares', '/doctor/1/antecedentes_familiares', 'Riscos familiares e observações.', 'Usar controles compactos, agrupados e com condição adicional progressiva.', 'fixture'],
+          ['prontuario-gestacao-anterior', 'Gestação anterior', '/doctor/1/gestacao_anterior', 'Histórico obstétrico anterior.', 'Organizar números e eventos como histórico, evitando uma parede de campos.', 'fixture'],
+          ['prontuario-antecedentes-clinicos', 'Antecedentes clínicos', '/doctor/1/antecedentes_clinicos', 'Condições clínicas preexistentes.', 'Agrupar por sistema e permitir localizar rapidamente respostas positivas.', 'fixture'],
+          ['prontuario-gestacao-atual', 'Gestação atual', '/doctor/1/gestacao_atual', 'Condições e intercorrências da gestação corrente.', 'Priorizar itens positivos e críticos e manter termos clínicos legíveis.', 'fixture'],
+          ['prontuario-vacina', 'Vacinas', '/doctor/1/vacina', 'Situação vacinal e datas de doses.', 'Representar esquemas e doses em linha do tempo, com pendências visíveis.', 'fixture'],
+          ['prontuario-historico-ultrassons', 'Histórico de ultrassons', '/doctor/1/historico_ultrassons', 'Eventos e registros de ultrassonografia.', 'Unificar com documentos quando fizer sentido e separar data, tipo e resultado.', 'fixture'],
+          ['prontuario-historico-exames', 'Histórico de exames', '/doctor/1/historico_exames', 'Documentos pendentes e respondidos com laudo.', 'Tornar seleção, visualização e emissão do relatório um fluxo explícito.', 'fixture'],
+          ['prontuario-informacoes-gerais', 'Informações gerais', '/doctor/1/informacoes_gerais', 'Estado geral, sintomas e contexto psicossocial.', 'Rever o rótulo genérico e aproximar os campos de seu contexto clínico.', 'fixture'],
+          ['prontuario-resumo', 'Resumo', '/doctor/1/resumo', 'Síntese extensa da gestação e antecedentes.', 'Converter a lista longa em resumo por prioridade, com âncoras e edição por seção.', 'fixture'],
+          ['prontuario-alertas', 'Alertas', '/doctor/1/alertas', 'Classificação geral e categorias de risco.', 'Este é o padrão mais claro atual; manter redundância entre cor, ícone, texto e detalhe.', 'fixture']
+        ]
+      }
+    ];
+
+    const inventory = document.querySelector('#inventory');
+    const badgeLabel = { real: 'Estado local', fixture: 'Dados fictícios', issue: 'Estado real / atenção' };
+
+    inventory.innerHTML = groups.map(group => `
+      <section class="flow" id="${group.id}">
+        <header class="section-head">
+          <h2>${group.title}</h2>
+          <p>${group.description}</p>
+        </header>
+        <div class="screen-grid">
+          ${group.screens.map(([image, title, route, description, observation, status]) => `
+            <article class="screen" data-group="${group.id}">
+              <div class="screen-visual">
+                <a href="screenshots/${image}.png" target="_blank" rel="noreferrer">
+                  <img src="screenshots/${image}.png" alt="Captura da tela ${title}" loading="lazy">
+                </a>
+                <span class="badge ${status}">${badgeLabel[status]}</span>
+              </div>
+              <div class="screen-copy">
+                <h3>${title}</h3>
+                <span class="route">${route}</span>
+                <p>${description}</p>
+                <p class="observation"><strong>Redesign:</strong> ${observation}</p>
+              </div>
+            </article>
+          `).join('')}
+        </div>
+      </section>
+    `).join('');
+
+    document.querySelectorAll('.filter').forEach(button => {
+      button.addEventListener('click', () => {
+        const selected = button.dataset.filter;
+        document.querySelectorAll('.filter').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+        document.querySelectorAll('.screen').forEach(card => { card.hidden = selected !== 'all' && card.dataset.group !== selected; });
+        document.querySelectorAll('.flow').forEach(section => {
+          section.hidden = selected !== 'all' && section.id !== selected;
+        });
+      });
+    });
+  </script>
+</body>
+
+</html>

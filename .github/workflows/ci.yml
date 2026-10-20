@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-audit:
+    name: Dependency audit (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: root
+            directory: .
+            lockfile: package-lock.json
+          - name: api
+            directory: apps/api
+            lockfile: apps/api/package-lock.json
+    defaults:
+      run:
+        working-directory: ${{ matrix.directory }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ${{ matrix.lockfile }}
+      - run: npm ci
+      - run: npm audit --audit-level=high --omit=optional
+
+  mobile-quality:
+    name: Mobile lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test:ci
+      - run: npx expo export --platform all --output-dir /tmp/myfetus-mobile-export
+
+  api-unit:
+    name: API unit tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+      - run: npm ci
+      - run: npm run test:ci
+
+  root-unit:
+    name: Root tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/api/package-lock.json
+      - run: npm ci
+      - run: npm ci --prefix apps/api
+      - run: npm run test:pdf-extractor
+
+  docker-build:
+    name: Docker build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: docker build --file apps/api/Dockerfile apps/api

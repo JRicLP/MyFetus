@@ -5,6 +5,7 @@ const fileCryptoService = require('./fileCryptoService');
 const { extractDocumentText } = require('./pdfTextExtractor');
 
 const runningJobs = new Set();
+let workerTimer = null;
 
 async function findDocument(documentId) {
   const result = await client.query(
@@ -115,7 +116,7 @@ async function processDocumentTextExtraction(documentId) {
 function enqueueDocumentTextExtraction(documentId) {
   setImmediate(() => {
     processDocumentTextExtraction(documentId).catch((err) => {
-      console.error(`Erro inesperado no worker de extração do documento ${documentId}:`, err);
+      logger.error(`Erro inesperado no worker de extração do documento`);
     });
   });
 }
@@ -142,12 +143,31 @@ async function processPendingDocumentTextExtractions(limit = 5) {
 function startDocumentTextExtractionWorker({
   intervalMs = Number(process.env.DOCUMENT_EXTRACTION_INTERVAL_MS || 30000),
   batchSize = Number(process.env.DOCUMENT_EXTRACTION_BATCH_SIZE || 5),
+  runImmediately = true,
+  processPending = processPendingDocumentTextExtractions,
+  setIntervalFn = setInterval,
 } = {}) {
-  setInterval(() => {
-    processPendingDocumentTextExtractions(batchSize).catch((err) => {
-      console.error('Erro no ciclo do worker de extração de PDFs:', err);
+  if (workerTimer !== null) return workerTimer;
+
+  const runCycle = () => Promise.resolve()
+    .then(() => processPending(batchSize))
+    .catch((err) => {
+      const logger = require('../utils/logger');
+      logger.error('Falha no ciclo do worker de extração', { code: 'EXTRACTION_CYCLE_FAILED' });
     });
-  }, intervalMs);
+
+  workerTimer = setIntervalFn(runCycle, intervalMs);
+  if (runImmediately) runCycle();
+
+  return workerTimer;
+}
+
+function stopDocumentTextExtractionWorker({ clearIntervalFn = clearInterval } = {}) {
+  if (workerTimer === null) return false;
+
+  clearIntervalFn(workerTimer);
+  workerTimer = null;
+  return true;
 }
 
 module.exports = {
@@ -157,4 +177,5 @@ module.exports = {
   processDocumentTextExtraction,
   processPendingDocumentTextExtractions,
   startDocumentTextExtractionWorker,
+  stopDocumentTextExtractionWorker,
 };

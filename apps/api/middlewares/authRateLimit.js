@@ -6,6 +6,40 @@ function positiveInteger(value, fallback) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+function createLimiterOptions(windowMs, limit, action, resource) {
+  return {
+    windowMs,
+    limit,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: {
+      error: 'Muitas tentativas. Tente novamente mais tarde.',
+    },
+    handler(req, res, _next, limiterOptions) {
+      audit(req, {
+        action,
+        resource,
+        outcome: 'FAILURE',
+        detail: { path: req.originalUrl, method: req.method },
+      });
+      return res.status(limiterOptions.statusCode).json(limiterOptions.message);
+    },
+  };
+}
+
+function createClinicalLimiterOptions(options = {}) {
+  const windowMs = positiveInteger(
+    options.windowMs ?? process.env.AUTH_RATE_LIMIT_WINDOW_MS,
+    15 * 60 * 1000
+  );
+  const clinicalMax = positiveInteger(
+    options.clinicalMax ?? process.env.CLINICAL_RATE_LIMIT_MAX,
+    60
+  );
+
+  return createLimiterOptions(windowMs, clinicalMax, 'CLINICAL_READ_BLOCKED', 'clinical_data');
+}
+
 function createAuthLimiters(options = {}) {
   const windowMs = positiveInteger(
     options.windowMs ?? process.env.AUTH_RATE_LIMIT_WINDOW_MS,
@@ -23,32 +57,20 @@ function createAuthLimiters(options = {}) {
     options.adminReadMax ?? process.env.ADMIN_READ_RATE_LIMIT_MAX,
     100
   );
-  const common = {
-    windowMs,
-    standardHeaders: 'draft-7',
-    legacyHeaders: false,
-    message: {
-      error: 'Muitas tentativas. Tente novamente mais tarde.',
-    },
-    handler(req, res, _next, options) {
-      audit(req, {
-        action: 'USER_LOGIN_BLOCKED',
-        resource: 'users',
-        outcome: 'FAILURE',
-        detail: { path: req.originalUrl, method: req.method },
-      });
-      return res.status(options.statusCode).json(options.message);
-    },
-  };
+  function createLimiter(limit, action, resource) {
+    return rateLimit(createLimiterOptions(windowMs, limit, action, resource));
+  }
 
   return {
-    loginLimiter: rateLimit({ ...common, limit: loginMax }),
-    registerLimiter: rateLimit({ ...common, limit: registerMax }),
-    adminReadLimiter: rateLimit({ ...common, limit: adminReadMax }),
+    loginLimiter: createLimiter(loginMax, 'USER_LOGIN_BLOCKED', 'users'),
+    registerLimiter: createLimiter(registerMax, 'USER_REGISTER_BLOCKED', 'users'),
+    adminReadLimiter: createLimiter(adminReadMax, 'ADMIN_READ_BLOCKED', 'users'),
+    clinicalLimiter: rateLimit(createClinicalLimiterOptions(options)),
   };
 }
 
 module.exports = {
+  createClinicalLimiterOptions,
   createAuthLimiters,
   positiveInteger,
 };

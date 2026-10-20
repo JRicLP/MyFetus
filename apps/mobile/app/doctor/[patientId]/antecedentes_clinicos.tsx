@@ -11,7 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { apiUrl, fetchWithAuth } from '../../../utils/api';
+import { api } from '../../../utils/apiClient';
 // --- COMPONENTE REUTILIZÁVEL 'ToggleButton' ---
 type ToggleButtonProps = {
   label: string;
@@ -67,12 +67,8 @@ export default function AntecedentesClinicosScreen() {
 
     const fetchPatientData = async () => {
       try {
-        setLoading(true);
-        const response = await fetchWithAuth(apiUrl(`/api/pregnants/${patientId}`));
-        if (!response.ok) {
-          throw new Error('Não foi possível buscar os dados da paciente');
-        }
-        const data = await response.json();
+       const response = await api.get(`/pregnants/${patientId}`);
+        const data = response.data;
         
         // Carregando dados da Tabela 'pregnants'
         setDiabetes(data.antecedentes_clinicos_diabetes || false);
@@ -88,7 +84,6 @@ export default function AntecedentesClinicosScreen() {
         setOutrosTexto(data.antecedentes_clinicos_outros_texto || '');
 
       } catch (error) {
-        console.error(error);
         Alert.alert('Erro', error instanceof Error ? error.message : 'Erro de rede');
       } finally {
         setLoading(false);
@@ -106,7 +101,7 @@ export default function AntecedentesClinicosScreen() {
     try {
       // 1. ALIMENTANDO O BD (Tabela 'pregnants')
       // (A função 'updatePregnant' no backend JÁ ESPERA por esses campos)
-      const response = await fetchWithAuth(apiUrl(`/api/pregnants/${patientId}`), {
+      await api.put(`/pregnants/${patientId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -124,15 +119,11 @@ export default function AntecedentesClinicosScreen() {
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('Falha ao salvar os dados');
-      }
-
+    
       // 2. NAVEGANDO
       router.push(`/doctor/${patientId}/gestacao_atual`);
 
     } catch (error) {
-      console.error(error);
       Alert.alert('Erro ao Salvar', error instanceof Error ? error.message : 'Erro de rede');
     } finally {
       setIsSaving(false);

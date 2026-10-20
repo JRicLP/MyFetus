@@ -18,7 +18,7 @@ O sistema está sendo desenvolvido para proporcionar uma interface intuitiva e e
 
 ### 🛠 Tecnologias Utilizadas
 
-* **Framework:** React Native (via Expo SDK 53)
+* **Framework:** React Native (via Expo SDK 56)
 * **Roteamento:** Expo Router (navegação baseada em arquivos)
 * **Linguagem:** TypeScript / JavaScript
 * **Estilização:** StyleSheet (Nativo)
@@ -95,6 +95,21 @@ Ao selecionar uma paciente, o médico entra num fluxo de formulários sequenciai
 
 ## ⚙️ Como Rodar
 
+### Build Android via EAS
+
+Para gerar um APK instalável em aparelhos de teste, use o perfil `preview`:
+
+```bash
+npm run build:android:preview
+```
+
+O perfil está definido em [`eas.json`](eas.json) e usa distribuição interna
+com `buildType: apk`. O primeiro uso requer `npx eas-cli@latest login` e
+`npx eas-cli@latest init`. Configure `EXPO_PUBLIC_API_URL` no ambiente EAS
+antes do build; um APK instalado sem Expo Go não consegue acessar a API por
+`localhost`. Consulte o [guia completo](../../docs/eas-android-build.md) para
+configuração, acompanhamento e critérios de aceite.
+
 ### Pré-requisitos
 * Docker Desktop instalado e rodando.
 * Node.js (para rodar o frontend localmente).
@@ -130,4 +145,3 @@ Acesse o projeto através do localhost (web) ou escaneie o QR Code com o Expo Go
 O aplicativo está configurado para se comunicar com o Backend via `localhost:3000`.
 * **Recomendado:** Rodar em **Emulador Android/iOS** ou **Navegador Web** no mesmo computador onde o Docker está rodando.
 * **Dispositivos Físicos:** Para rodar no smartphone (via Wi-Fi), é necessário alterar manualmente as chamadas de API no código (`fetch`) para o IP da sua máquina local.
-

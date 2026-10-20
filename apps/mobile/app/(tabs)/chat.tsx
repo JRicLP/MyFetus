@@ -63,7 +63,7 @@ export default function ChatScreen() {
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, botMessage]);
-    } catch (error) {
+    } catch {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         text: 'Não consegui consultar o assistente agora. Tente novamente em alguns instantes.',

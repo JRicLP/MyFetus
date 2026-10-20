@@ -11,7 +11,8 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { apiUrl, fetchWithAuth } from '../../../utils/api';
+import { api } from '../../../utils/apiClient';
+import { parseInputFloat, parseInputInt } from '../../../utils/clinicalInput';
 
 // --- Funções de Cálculo  ---
 const calcularIMC = (peso: number, altura: number) => {
@@ -55,28 +56,10 @@ export default function InfoIniciaisScreen() {
   const [freqCardiaca, setFreqCardiaca] = useState(''); // (AGORA É REAL)
   const [temperatura, setTemperatura] = useState(''); // (AGORA É REAL)
 
-  // --- Estados dos Cálculos ---
-  const [imc, setImc] = useState(0);
-  const [classImc, setClassImc] = useState('');
-  const [ganhoPeso, setGanhoPeso] = useState(0);
-  const [classGanhoPeso, setClassGanhoPeso] = useState('');
-  const [classFc, setClassFc] = useState('');
-  const [classTemp, setClassTemp] = useState('');
-
   // --- Estados de Controle ---
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [pregnancyId, setPregnancyId] = useState<string | null>(null); // (NOVO)
-
-  // Helper
-  const parseInputFloat = (input: string) => {
-    if (input === '') return 0;
-    return parseFloat(input.replace(',', '.'));
-  }
-  const parseInputInt = (input: string) => {
-    if (input === '') return 0;
-    return parseInt(input, 10);
-  }
 
   // --- useEffect para LER os dados ---
   useEffect(() => {
@@ -86,11 +69,8 @@ export default function InfoIniciaisScreen() {
       try {
         setLoading(true);
         // 1. LENDO OS DADOS 
-        const response = await fetchWithAuth(apiUrl(`/api/pregnants/${patientId}`));
-        if (!response.ok) {
-          throw new Error('Não foi possível buscar os dados da paciente');
-        }
-        const data = await response.json();
+        const response = await api.get(`/pregnants/${patientId}`);
+        const data = response.data;
         
         // Dados da Tabela 'pregnants'
         setAltura(data.altura ? String(data.altura) : '');
@@ -105,7 +85,6 @@ export default function InfoIniciaisScreen() {
         }
 
       } catch (error) {
-        console.error(error);
         Alert.alert('Erro', error instanceof Error ? error.message : 'Erro de rede');
       } finally {
         setLoading(false);
@@ -116,33 +95,16 @@ export default function InfoIniciaisScreen() {
   }, [patientId]);
 
 
-  // --- useEffect para RECALCULAR ---
-  useEffect(() => {
-    const numAltura = parseInputFloat(altura);
-    const numPesoPre = parseInputFloat(pesoPre);
-    const numPesoAtual = parseInputFloat(pesoAtual);
-    const numFc = parseInputInt(freqCardiaca); 
-    const numTemp = parseInputFloat(temperatura); 
-
-    // ... (cálculos de IMC e Ganho de Peso)
-    const novoImc = calcularIMC(numPesoPre, numAltura);
-    setImc(novoImc);
-    setClassImc(classificarIMC(novoImc));
-
-    if (numPesoPre > 0 && numPesoAtual > 0) {
-      const novoGanho = numPesoAtual - numPesoPre;
-      setGanhoPeso(novoGanho);
-      setClassGanhoPeso(classificarGanhoPeso(novoGanho));
-    } else {
-      setGanhoPeso(0);
-      setClassGanhoPeso('');
-    }
-
-    
-    setClassFc(classificarFC(numFc));
-    setClassTemp(classificarTemp(numTemp));
-    
-  }, [altura, pesoPre, pesoAtual, freqCardiaca, temperatura]);
+  const numPesoPre = parseInputFloat(pesoPre);
+  const numPesoAtual = parseInputFloat(pesoAtual);
+  const imc = calcularIMC(numPesoPre, parseInputFloat(altura));
+  const classImc = classificarIMC(imc);
+  const ganhoPeso = numPesoPre > 0 && numPesoAtual > 0 ? numPesoAtual - numPesoPre : 0;
+  const classGanhoPeso = numPesoPre > 0 && numPesoAtual > 0
+    ? classificarGanhoPeso(ganhoPeso)
+    : '';
+  const classFc = classificarFC(parseInputInt(freqCardiaca));
+  const classTemp = classificarTemp(parseInputFloat(temperatura));
 
   
   // ---  handleNext faz DOIS SALVAMENTOS ---
@@ -152,41 +114,26 @@ export default function InfoIniciaisScreen() {
     
     try {
       // --- SALVAMENTO 1: Tabela 'pregnants' ---
-      const pregnantResponse = await fetchWithAuth(apiUrl(`/api/pregnants/${patientId}`), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          altura: parseInputFloat(altura),
-          peso_pregestacional: parseInputFloat(pesoPre),
-          peso_atual: parseInputFloat(pesoAtual),
-          temperatura_materna: parseInputFloat(temperatura)
-        }),
+      await api.put(`/pregnants/${patientId}`, {
+        altura: parseInputFloat(altura),
+        peso_pregestacional: parseInputFloat(pesoPre),
+        peso_atual: parseInputFloat(pesoAtual),
+        temperatura_materna: parseInputFloat(temperatura)
       });
-      if (!pregnantResponse.ok) {
-        throw new Error('Falha ao salvar os dados da gestante');
-      }
       
       // --- SALVAMENTO 2: Tabela 'pregnancies' ---
       if (pregnancyId) { // Só salva se tivermos um ID de gestação
-        const pregnancyResponse = await fetchWithAuth(apiUrl(`/api/pregnancies/${pregnancyId}`), {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            frequencia_cardiaca: parseInputInt(freqCardiaca) 
-          }),
+       await api.put(`/pregnancies/${pregnancyId}`, {
+          frequencia_cardiaca: parseInputInt(freqCardiaca) 
         });
-        if (!pregnancyResponse.ok) {
-          throw new Error('Falha ao salvar os dados da gestação');
-        }
       } else {
-        console.warn("Não foi possível salvar Frequência Cardíaca: ID da gestação não encontrado.");
+        // Sem uma gestação ativa, não há registro de pregnancy para atualizar.
       }
 
       // 3. NAVEGANDO
       router.push(`/doctor/${patientId}/grafico`);
 
     } catch (error) {
-      console.error(error);
       Alert.alert('Erro ao Salvar', error instanceof Error ? error.message : 'Erro de rede');
     } finally {
       setIsSaving(false);

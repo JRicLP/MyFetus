@@ -2,7 +2,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image, Acti
 import { useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { apiUrl } from '../utils/api';
+import { api } from '../utils/apiClient';
 
 export default function Cadastro() {
   const [nome, setNome] = useState('');
@@ -106,19 +106,10 @@ export default function Cadastro() {
         birthdate: dataFormatada,
       };
 
-      const response = await fetch(apiUrl('/api/users'), { 
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(dadosCadastro),
-      });
+      const response = await api.post('/users', dadosCadastro);
+      const data = response.data;
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Erro ao criar conta');
-      }
+      
 
       Alert.alert(
         'Sucesso!',

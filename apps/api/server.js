@@ -102,6 +102,7 @@ const clinicalHistoryRoutes = require('./routes/clinicalHistory');
 const { startDocumentTextExtractionWorker } = require('./workers/pdfWorker');
 const agentRoutes = require('./routes/agent');
 const auditRoutes = require('./routes/audit');
+const healthRoutes = require('./routes/health');
 
 //Prefixo /api para padronização das rotas
 app.use('/api/users', userRoutes);
@@ -120,7 +121,14 @@ app.use('/api/admin/audit', auditRoutes);
 app.use('/api/growth', growthRoutes);
 app.use('/api/history', clinicalHistoryRoutes);
 
-//Rota de teste (para verificar se o backend está no ar)
+// Documentacao OpenAPI/Swagger (E1-09): contrato em apps/api/openapi.yaml.
+const docsRoutes = require('./routes/docs');
+app.use('/docs', docsRoutes);
+
+// Rota de readiness probe (para verificar conectividade ativa com dependências)
+app.use('/health', healthRoutes);
+
+// Rota de liveness probe (para verificar se o backend está no ar)
 app.get('/ping', (req, res) => {
   res.json({ message: 'Backend funcionando corretamente.' });
 });
@@ -139,11 +147,11 @@ async function backfillPregnantsForUsers() {
         );
     `);
     if (result?.rowCount) {
-      console.log(`🧩 Backfill: ${result.rowCount} paciente(s) adicionada(s) em pregnants.`);
+      logger.info('Backfill de gestantes concluído', { rowCount: result.rowCount });
     }
   } catch (err) {
     // Não derruba o servidor se o banco ainda não estiver pronto.
-    console.warn('⚠️ Backfill de pregnants falhou:', err?.message || err);
+    logger.warn('Falha em rotina de inicialização do schema', { code: 'BACKFILL_PREGNANTS_FAILED' });
   }
 }
 
@@ -160,7 +168,7 @@ async function ensurePregnantDocumentsReportSchema() {
         ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMP;
     `);
   } catch (err) {
-    console.warn('⚠️ ensurePregnantDocumentsReportSchema falhou:', err?.message || err);
+    logger.warn('Falha em rotina de inicialização do schema', { code: 'SCHEMA_DOCUMENTS_REPORT_FAILED' });
   }
 }
 
@@ -185,7 +193,7 @@ async function ensureDoctorWorkflowSchema() {
       );
     `);
   } catch (err) {
-    console.warn('⚠️ ensureDoctorWorkflowSchema falhou:', err?.message || err);
+    logger.warn('Falha em rotina de inicialização do schema', { code: 'SCHEMA_DOCTOR_WORKFLOW_FAILED' });
   }
 }
 
@@ -197,4 +205,5 @@ const PORT = process.env.PORT || 3000;
 //importante: use '0.0.0.0' para aceitar conexões externas dentro do container Docker
 app.listen(PORT, '0.0.0.0', () => {
   logger.startup(`🚀 Servidor rodando em http://0.0.0.0:${PORT}`);
+  startDocumentTextExtractionWorker();
 });

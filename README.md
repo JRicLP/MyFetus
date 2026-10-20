@@ -23,6 +23,7 @@ Este README foi escrito para permitir que uma nova equipe consiga entender, conf
 - [RAG e chat clínico](#rag-e-chat-clínico)
 - [Segurança e privacidade](#segurança-e-privacidade)
 - [Testes](#testes)
+- [CI/CD e deploy](#cicd-e-deploy)
 - [Scripts úteis](#scripts-úteis)
 - [Credenciais de teste](#credenciais-de-teste)
 - [Bugs conhecidos](#bugs-conhecidos)
@@ -42,14 +43,16 @@ Este README foi escrito para permitir que uma nova equipe consiga entender, conf
 | Perfis principais | Gestante, médico e admin |
 | Processamento de documentos | Upload, extração de texto, OCR e consulta |
 | RAG/chat clínico | Busca semântica, embeddings, Pinecone e geração com Gemini |
+| Deploy de homologação | Cloud Run GCP com HTTPS e CD automatizado |
 | Deploy de produção | Não implementado |
+| CI/CD | CI em PRs e CD aprovado em `main` |
 | Bugs conhecidos | Nenhum bug conhecido identificado na versão entregue |
 
 ## Repositórios
 
 | Tipo | Link | Branch principal | Observação |
 |---|---|---|---|
-| Versão atual | <https://github.com/JRicLP/MyFetus.git> | `main` | Repositório principal para continuidade do desenvolvimento. |
+| Versão atual | <https://github.com/felipemrvieira/MyFetus.git> | `main` | Repositório principal para continuidade do desenvolvimento. |
 | Versão herdada | <https://github.com/Lucasrc22/github-grupo7.git> | `main` | Projeto usado como base histórica antes da evolução para o MyFetus 2.0. |
 
 ## Visão geral da solução
@@ -153,8 +156,6 @@ A plataforma também inclui uma camada backend responsável por:
 | `apps/mobile` | Interface do aplicativo, rotas Expo, telas da gestante, telas médicas, gráficos e integração com API. |
 | `apps/api` | API REST, autenticação, regras de negócio, acesso ao banco, processamento de documentos, RAG e segurança. |
 | `apps/api/db` | Scripts SQL de criação, migração, triggers, tabelas clínicas, segurança e auditoria. |
-| `packages/shared` | Código compartilhado em TypeScript. |
-| `packages/sync-engine` | Pacote reservado para sincronização. |
 | `scripts` | Geração de datasets e relatórios de acurácia. |
 | `tests` | Testes automatizados e fixtures de PDF. |
 
@@ -227,14 +228,10 @@ MyFetus/
 │       ├── app/                    # Rotas e telas Expo Router
 │       │   ├── (tabs)/             # Área principal da gestante
 │       │   └── doctor/             # Área médica
-│       ├── assets/                 # Imagens, fontes e ícones
+│       ├── assets/                 # Imagens e ícones
 │       ├── components/             # Componentes reutilizáveis
-│       ├── constants/              # Constantes de tema
 │       ├── hooks/                  # Hooks React
 │       └── utils/                  # Utilitários do app
-├── packages/
-│   ├── shared/                     # Pacote compartilhado
-│   └── sync-engine/                # Pacote reservado para sincronização
 ├── reports/                        # Relatórios gerados por scripts
 ├── scripts/                        # Scripts de dataset/acurácia
 ├── tests/                          # Testes raiz e fixtures de PDF
@@ -244,6 +241,62 @@ MyFetus/
 ```
 
 ## Configuração e execução local
+
+### Guia Rápido de Onboarding (≤ 10 minutos)
+
+O projeto dispõe do script automatizado `npm run setup` para preparar todo o ambiente de desenvolvimento local (API, banco de dados e sementes de teste):
+
+1. **Pré-requisitos**:
+   - **Node.js**: versão 18 ou superior.
+   - **Docker Desktop**: instalado e em execução.
+
+2. **Configuração automática em comando único**:
+   Na raiz do repositório, execute:
+   ```bash
+   npm run setup
+   ```
+   *O que este comando faz automaticamente:*
+   - Valida os pré-requisitos do ambiente (Node.js e Docker daemon).
+   - Cria o arquivo `.env` a partir do `.env.example` (se ainda não existir).
+   - Gera segredos criptográficos locais seguros (`JWT_SECRET`, `AES_ENCRYPTION_KEY_V1`, `EMAIL_LOOKUP_HMAC_KEY`, `PG_PASSWORD`).
+   - Instala as dependências necessárias do monorepo.
+   - Inicia o contêiner do PostgreSQL 15 (`docker compose up -d db`).
+   - Aguarda a prontidão do banco e aplica automaticamente as migrações pendentes (`scripts/migrate.js`).
+   - Executa os seeds iniciais (`scripts/seed.js`).
+
+   Depois do setup, `npm run seed` pode ser executado novamente para completar
+   os dados sinteticos sem duplicar registros. A carga cria 1 administrador,
+   2 medicos e 10 gestantes, com gestacao, consultas, historico de peso e
+   vinculos medico-paciente. Contas ja existentes mantem suas senhas e dados.
+   O comando aceita apenas `NODE_ENV=development` ou `test` e PostgreSQL local.
+   A senha inicial das novas contas e `SenhaTeste123!`; defina `SEED_PASSWORD`
+   para usar outra senha na criacao de novas contas.
+
+3. **Executar as aplicações**:
+   ```bash
+   # Iniciar API Backend (porta 3000)
+   npm run dev:api
+
+   # Iniciar Aplicativo Mobile (Expo)
+   npm run dev:mobile
+   ```
+
+4. **Atualizar migrações preservando dados existentes**:
+   Se você já possui o volume `db_data` criado e deseja aplicar novas tabelas/colunas sem perder seus dados cadastrados:
+   ```bash
+   npm run db:migrate
+   # ou apenas execute npm run setup (que aplica as migrações pendentes automaticamente)
+   ```
+
+5. **Resetar o ambiente (opcional)**:
+   Para limpar contêineres e recriar o volume do banco de dados do zero:
+   ```bash
+   npm run setup -- --reset
+   ```
+
+---
+
+### Procedimento Manual Passo a Passo
 
 ### 1. Pré-requisitos
 
@@ -256,7 +309,7 @@ MyFetus/
 ### 2. Clonar o repositório
 
 ```bash
-git clone https://github.com/JRicLP/MyFetus.git
+git clone https://github.com/felipemrvieira/MyFetus.git
 cd MyFetus
 ```
 
@@ -367,6 +420,20 @@ Exemplo:
 EXPO_PUBLIC_API_URL=http://192.168.0.10:3000
 ```
 
+### Build Android para testes externos
+
+O app possui perfis EAS para gerar um APK instalável sem Expo Go e um AAB de
+produção. O procedimento completo, incluindo o vínculo inicial da conta EAS e
+a configuração da URL pública da API, está em
+[`docs/eas-android-build.md`](docs/eas-android-build.md).
+
+Resumo do build de validação:
+
+```bash
+cd apps/mobile
+npm run build:android:preview
+```
+
 ## Variáveis de ambiente
 
 O arquivo `.env.example` na raiz é a referência oficial para configuração local. Nunca versione segredos reais.
@@ -399,6 +466,7 @@ O arquivo `.env.example` na raiz é a referência oficial para configuração lo
 | `AUTH_RATE_LIMIT_MAX` | Não | `10` | Limite para login. |
 | `REGISTER_RATE_LIMIT_MAX` | Não | `5` | Limite para cadastro. |
 | `ADMIN_READ_RATE_LIMIT_MAX` | Não | `100` | Limite para leitura administrativa. |
+| `CLINICAL_RATE_LIMIT_MAX` | Não | `60` | Limite para consultas clínicas autenticadas. |
 
 ### Criptografia, documentos e IA
 
@@ -464,6 +532,20 @@ Se o shell não carregar as variáveis, use os valores do `.env` diretamente:
 docker exec -it myfetus-db psql -U myfetus_app -d myfetus
 ```
 
+### Ciclo de vida e Migrações
+
+- **Inicialização limpa (novo volume):** O PostgreSQL executa os arquivos de `/docker-entrypoint-initdb.d/` (`01_create_tables.sql` a `12_record_initial_migrations.sql`) na ordem léxica durante o primeiro boot de um volume vazio (`db_data`). O último script registra as migrations já executadas em `schema_migrations`.
+- **Atualização com preservação de dados (volume existente):** O Docker pula `/docker-entrypoint-initdb.d/` se o volume `db_data` já existir. Para aplicar novas alterações sem perda de dados, o MyFetus utiliza o script `scripts/migrate.js` (com a tabela de controle `schema_migrations`), executado automaticamente em `npm run setup` ou sob demanda via:
+  ```bash
+  npm run db:migrate
+  ```
+- **Reset completo do banco:** Caso deseje apagar todos os dados e recriar o volume do zero:
+  ```bash
+  npm run setup -- --reset
+  # ou
+  npm run docker:reset
+  ```
+
 ## API
 
 URL base local:
@@ -471,6 +553,27 @@ URL base local:
 ```text
 http://localhost:3000/api
 ```
+
+### Documentação OpenAPI (Swagger)
+
+O contrato da API fica versionado em [`apps/api/openapi.yaml`](apps/api/openapi.yaml) (OpenAPI 3.1) e é a fonte de verdade das rotas, parâmetros, corpos, respostas, autenticação e papéis. Com a API rodando:
+
+| URL | Conteúdo |
+|---|---|
+| `http://localhost:3000/docs/` | Swagger UI (somente leitura; "Try it out" desabilitado). |
+| `http://localhost:3000/docs/openapi.json` | Especificação em JSON. |
+| `http://localhost:3000/docs/openapi.yaml` | Especificação bruta (o mesmo arquivo versionado). |
+
+O `/docs` é público, não acessa o banco nem dados clínicos e tem rate limit (`DOCS_RATE_LIMIT_MAX`, padrão 300 a cada 15 min). Os exemplos do contrato são sintéticos.
+
+**Ao criar ou alterar uma rota**, atualize o `openapi.yaml` no mesmo PR. O teste `tests/openapiContract.test.js` (no `npm run test:ci`) falha quando:
+
+- uma rota do Express não está documentada (ou não está em `config/openapiAllowlist.js` com justificativa);
+- um path documentado não existe mais no Express;
+- a operação não declara `security`, ou declara diferente do `authenticateToken` da rota;
+- `x-roles` diverge do `requireRole(...)` da rota.
+
+Verificação local: `npm run docs:check` (dentro de `apps/api`).
 
 ### Rotas principais
 
@@ -485,9 +588,9 @@ http://localhost:3000/api
 | `POST` | `/api/doctors` | Não | Cria conta médica. |
 | `GET` | `/api/pregnants` | Médico/Admin | Lista gestantes. |
 | `POST` | `/api/pregnants` | Gestante/Admin | Cria registro de gestante. |
-| `GET` | `/api/pregnants/:id` | JWT | Consulta gestante. |
+| `GET` | `/api/pregnants/:id` | Própria gestante/Médico vinculado/Admin | Consulta gestante. |
 | `PUT` | `/api/pregnants/:id` | Médico/Admin | Atualiza gestante. |
-| `GET` | `/api/pregnants/:id/alerts` | Médico/Admin | Consulta alertas de risco. |
+| `GET` | `/api/pregnants/:id/alerts` | Médico vinculado/Admin | Consulta alertas de risco. |
 | `POST` | `/api/pregnancies` | Gestante/Médico/Admin | Cria gestação. |
 | `GET` | `/api/pregnancies` | Gestante/Médico/Admin | Lista gestações. |
 | `PUT` | `/api/pregnancies/:id` | Médico/Admin | Atualiza gestação. |
@@ -506,15 +609,15 @@ http://localhost:3000/api
 | `GET` | `/api/history/pregnancies/:pregnancyId` | Gestante/Médico/Admin | Consulta histórico clínico. |
 | `POST` | `/api/history/pregnancies/:pregnancyId/fetal-biometries` | Médico/Admin | Registra biometria fetal. |
 | `POST` | `/api/history/pregnancies/:pregnancyId/maternal-weights` | Médico/Admin | Registra peso materno. |
-| `GET` | `/api/growth/chart` | Não definido | Consulta dados de gráfico de crescimento. |
-| `POST` | `/api/growth/percentile` | Não definido | Calcula percentil. |
+| `GET` | `/api/growth/chart` | JWT | Consulta dados de gráfico de crescimento. |
+| `POST` | `/api/growth/percentile` | JWT | Calcula percentil. |
 | `POST` | `/api/internal/loinc/term` | Admin | Mapeia termo único para LOINC. |
 | `POST` | `/api/internal/loinc/text` | Admin | Mapeia bloco de texto para LOINC. |
 | `POST` | `/api/internal/rag/search` | JWT | Busca semântica na base clínica. |
 | `POST` | `/api/internal/rag/chat` | JWT | Chat clínico com RAG. |
 | `POST` | `/api/internal/rag/chat/agents` | JWT | Chat multiagente. |
 | `GET` | `/api/internal/rag/stats` | Admin | Estatísticas da base RAG. |
-| `POST` | `/api/agent/maternal-analysis` | JWT | Análise materna por agente. |
+| `POST` | `/api/agent/maternal-analysis` | JWT + `medico` (vinculado) / `admin` | Análise materna por agente. |
 | `GET` | `/api/admin/audit` | Admin | Lista auditoria. |
 | `POST` | `/api/sync` | Admin | Sincronização administrativa. |
 
@@ -607,6 +710,30 @@ Recursos implementados:
 - Suporte a HTTPS/HSTS em ambiente de produção.
 - Restrição de CORS por origem configurável.
 
+### Autorização de dados clínicos
+
+O controle de acesso da API combina até três verificações, nesta ordem:
+
+1. **Autenticação** (`authenticateToken`): exige `Authorization: Bearer <JWT>` válido e não expirado; caso contrário, `401`.
+2. **Papel** (`requireRole`): o papel do token (`gestante`, `medico`, `admin`) precisa estar autorizado na rota; caso contrário, `403`.
+3. **Vínculo com o recurso** (`ensureCanAccessPregnant`, em `utils/clinicalAccess.js`): `admin` acessa qualquer gestante; `gestante` acessa apenas o próprio registro; `medico` acessa apenas gestantes com vínculo `active` em `doctor_patient_links`. Sem vínculo, `403` — antes de qualquer leitura do prontuário.
+
+Essa mesma checagem é aplicada antes de carregar alertas, histórico, gestações,
+eventos e documentos. O teste `apps/api/tests/crossPatientAuthorization.test.js`
+mantém o caso de regressão: a gestante A pode consultar seus próprios dados,
+mas recebe `403` e nenhum dado clínico da gestante B é lido quando tenta usar o
+identificador de B. O CI executa `npm audit --audit-level=high` nos lockfiles da
+raiz e da API; o Dependabot acompanha os três workspaces npm e as GitHub Actions.
+
+Aplicação nas rotas corrigidas na E1-05 (issue #43):
+
+| Rota | Regra |
+|---|---|
+| `POST /api/agent/maternal-analysis` | JWT + papel `medico`/`admin` + vínculo com o `patientId` enviado. Gestante recebe `403`. Para médico, o vínculo é verificado antes da existência: ID sem vínculo e ID inexistente recebem o mesmo `403`, evitando enumeração de IDs. |
+| `GET /api/growth/chart`, `POST /api/growth/percentile` | JWT obrigatório (qualquer papel), aplicado no router de `/api/growth`. |
+
+Antes da correção, qualquer usuário autenticado podia trocar o `patientId` no corpo de `/api/agent/maternal-analysis` e receber a análise do prontuário descriptografado de outra paciente (IDOR). Agora o `patientId` é validado como inteiro e o vínculo é verificado antes das consultas clínicas; os testes `tests/agentController.test.js` comprovam que, ao trocar o ID, nenhuma consulta ao prontuário é executada e nenhum dado chega ao agente.
+
 Recomendações para continuidade:
 
 - Nunca versionar `.env` com segredos reais.
@@ -645,7 +772,9 @@ Execute dentro de `apps/api`.
 | `npm run test:rag` | Valida chunking, embeddings, vector store e busca RAG. |
 | `npm run test:stress` | Testa componentes do simulador de estresse. |
 | `npm run test:generation-service` | Testa serviço de geração de respostas. |
-| `npm run test:agent-controller` | Testa controlador de agentes clínicos. |
+| `npm run test:agent-controller` | Testa autenticação, papel e vínculo (IDOR) em `/api/agent/maternal-analysis`. |
+| `node --test ./tests/growthRoutes.test.js` | Testa exigência de JWT em `/api/growth/*` e o acesso autenticado. |
+| `npm run docs:check` | Valida o `openapi.yaml`, a cobertura das rotas (auth e papéis) e o smoke test de `/docs`. |
 | `npm run test:hadlockCalculator` | Valida cálculos associados a crescimento fetal. |
 | `npm run test:clinical-history` | Valida histórico clínico e séries temporais. |
 
@@ -677,6 +806,30 @@ npm run test:rag
 cd ../mobile
 npm run lint
 ```
+
+## CI/CD e deploy
+
+O processo completo de CI/CD, incluindo o contrato independente de provedor,
+a configuração atual no GCP, OIDC, permissões, secrets, migrations, smoke
+tests, rollback, custos e o procedimento para trocar de cloud está em
+[`docs/ci-cd.md`](docs/ci-cd.md).
+
+A implementação atual do ambiente GCP está detalhada em
+[`docs/ci-cd-gcp-staging.md`](docs/ci-cd-gcp-staging.md). O workflow
+[`.github/workflows/cd-staging.yml`](.github/workflows/cd-staging.yml):
+
+1. executa após merge em `main` ou manualmente;
+2. aguarda aprovação do environment `staging`;
+3. autentica por OIDC, sem chave JSON;
+4. publica a imagem usando o SHA do commit;
+5. executa migrations antes de atualizar a API;
+6. roda smoke tests HTTPS e valida a proteção JWT.
+
+Para trocar o provedor, preserve a ordem e as garantias do pipeline e substitua
+apenas o adaptador de autenticação, registry, executor de migrations e runtime.
+O backend atual é um container Express de longa duração com worker de documentos;
+plataformas serverless de funções exigem uma adaptação arquitetural documentada
+antes de serem usadas.
 
 ## Scripts úteis
 
@@ -792,9 +945,8 @@ Itens ainda recomendados para continuidade:
 
 | Item | Descrição |
 |---|---|
-| Deploy | Configurar ambiente de homologação/produção com HTTPS, secrets e observabilidade. |
-| Pipeline CI/CD | Automatizar lint, testes, build e análise de segurança em pull requests. |
-| Documentação OpenAPI | Publicar contrato formal da API com Swagger/OpenAPI. |
+| Deploy de produção | Criar ambiente separado, domínio, observabilidade e aprovação de produção. |
+| Integrações adicionais | Adicionar testes DAST, carga e integração com banco efêmero. |
 | Seeds de desenvolvimento | Criar massa de dados padronizada para demos e testes locais. |
 | Cobertura mobile | Ampliar testes automatizados no aplicativo. |
 | Observabilidade | Incluir métricas, tracing e dashboards de saúde da API. |
@@ -852,6 +1004,8 @@ Arquivos importantes no repositório:
 
 | Arquivo | Conteúdo |
 |---|---|
+| `docs/ci-cd.md` | Contrato de CI/CD, deploy, rollback e troca de provedor. |
+| `docs/ci-cd-gcp-staging.md` | Implementação atual do CI/CD no Google Cloud. |
 | `apps/api/API_USAGE.md` | Exemplos de uso da API. |
 | `apps/api/CURL_RAG_EXAMPLES.md` | Exemplos de chamadas RAG. |
 | `apps/api/README_RAG_SPRINT4.md` | Documentação histórica do módulo RAG. |

@@ -47,19 +47,30 @@ try {
   const logLine = captured.find(([level, line]) => level === 'log' && line.includes('[request]'))?.[1] || '';
   const errorLine = captured.find(([level]) => level === 'error')?.[1] || '';
 
-  assert.ok(logLine.includes('Maria d. S. S.'));
-  assert.ok(logLine.includes('m***s@e***'));
-  assert.ok(logLine.includes('[REDACTED]'));
-  assert.ok(errorLine.includes('Erro ao salvar medição'));
-  assert.ok(errorLine.includes('duplicate key value violates unique constraint'));
-  assert.ok(errorLine.includes('Maria d. S. S.'));
+  // Verifica que as linhas emitidas são JSON estruturado válido (NDJSON)
+  const parsedLog = JSON.parse(logLine);
+  assert.strictEqual(parsedLog.level, 'info');
+  assert.strictEqual(parsedLog.severity, 'INFO');
+  assert.strictEqual(parsedLog.message, '[request]');
+  assert.ok(parsedLog.timestamp);
+  assert.strictEqual(parsedLog.body.name, 'Maria d. S. S.');
+  assert.strictEqual(parsedLog.body.password, '[REDACTED]');
+
+  const parsedError = JSON.parse(errorLine);
+  assert.strictEqual(parsedError.level, 'error');
+  assert.strictEqual(parsedError.severity, 'ERROR');
+  assert.strictEqual(parsedError.message, 'Erro ao salvar medição');
+  assert.ok(parsedError.timestamp);
+  assert.strictEqual(parsedError.details, 'duplicate key value violates unique constraint');
+  assert.strictEqual(parsedError.payload.body.name, 'Maria d. S. S.');
+
   assert.ok(sanitizedPayload.body.name.includes('Maria d. S. S.'));
 
   originalLog('ANTES');
   originalLog(JSON.stringify(rawPayload, null, 2));
   originalLog('DEPOIS');
   originalLog(JSON.stringify(sanitizedPayload, null, 2));
-  originalLog('OK: logger único sanitiza payloads antes de registrar.');
+  originalLog('OK: logger único sanitiza payloads e emite JSON estruturado.');
 } finally {
   console.log = originalLog;
   console.error = originalError;

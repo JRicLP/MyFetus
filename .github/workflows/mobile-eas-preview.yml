@@ -1,0 +1,66 @@
+name: Mobile EAS preview
+
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: "Motivo ou referência deste APK"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-eas-preview
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Android preview APK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      - name: Install mobile dependencies
+        run: npm ci
+
+      - name: Validate mobile project
+        run: |
+          npm run lint
+          npm run typecheck
+          npm run test:ci
+          npx expo config --json > /tmp/myfetus-mobile-config.json
+
+      - name: Build APK with EAS
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EAS_BUILD_MESSAGE: ${{ inputs.message }}
+        run: |
+          if [[ -z "${EXPO_TOKEN:-}" ]]; then
+            echo "The EXPO_TOKEN repository secret is required." >&2
+            exit 1
+          fi
+
+          build_args=(
+            --platform android
+            --profile preview
+            --non-interactive
+          )
+
+          if [[ -n "${EAS_BUILD_MESSAGE:-}" ]]; then
+            build_args+=(--message "${EAS_BUILD_MESSAGE}")
+          fi
+
+          npx eas-cli@latest build "${build_args[@]}"

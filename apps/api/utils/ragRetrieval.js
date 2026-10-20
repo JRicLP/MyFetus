@@ -82,7 +82,6 @@ function generateQueryEmbedding(query) {
  * @returns {Object} Resultado estruturado com ranking
  */
 async function semanticSearch(query, queryEmbedding, chunks = [], topK = 5, filtros = {}) {
-  console.log("DEBUG: Iniciando busca com query:", query);
   
   // 1. Definições iniciais de escopo
   const startTime = Date.now();
@@ -96,7 +95,7 @@ async function semanticSearch(query, queryEmbedding, chunks = [], topK = 5, filt
   // 3. Garantir chunks (se vazio, retorna cedo para evitar erros)
   const listaChunks = Array.isArray(chunks) ? chunks : [];
   if (listaChunks.length === 0) {
-    console.warn("Aviso: semanticSearch recebeu lista de chunks vazia.");
+    
     return { query, resultados: [], total: 0, tempo_ms: Date.now() - startTime };
   }
 
@@ -115,8 +114,7 @@ async function semanticSearch(query, queryEmbedding, chunks = [], topK = 5, filt
   // const queryEmbedding = generateQueryEmbedding(query);
 
   // Adicione isto no seu ragRetrieval.js antes de .map()
-  console.log("DEBUG: Dimensão da Query Embedding:", queryEmbedding.length);
-  console.log("DEBUG: Dimensão do Chunk Embedding:", chunks[0].embedding.length);
+
 
   // 5. Embedding e Similaridade (Declarados aqui)
   const resultadosComScore = chunksFilterados.map(chunk => ({
@@ -140,7 +138,7 @@ async function semanticSearch(query, queryEmbedding, chunks = [], topK = 5, filt
     documento_id: chunk.id
   }));
 
-  console.log(`Busca finalizada: ${resultados.length} resultados encontrados.`);
+  
 
   return {
     query,

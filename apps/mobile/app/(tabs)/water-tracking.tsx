@@ -10,16 +10,20 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSession } from '@/contexts/SessionContext';
+import { getScopedItem, setScopedItem } from '@/utils/scopedStorage';
+import { localDateKey } from '@/utils/gestationDate';
+import {
+  getWaterAmountForDate,
+  parseWaterHistory,
+  updateWaterEntry,
+  WaterEntry,
+} from '@/utils/waterTracking';
 
 const WEB_MAX_WIDTH = 430;
 
 const WATER_HISTORY_KEY = '@myFetus:waterHistory';
-
-type WaterEntry = {
-  date: string;
-  amount: number;
-};
+const WATER_HISTORY_SCOPED_KEY = 'waterHistory';
 
 // Constantes para conversão
 const COPO_ML = 200; // 1 copo = 200ml
@@ -30,52 +34,43 @@ export default function WaterTrackingScreen() {
   const { width: windowWidth, height } = useWindowDimensions();
   const width = Platform.OS === 'web' ? Math.min(windowWidth, WEB_MAX_WIDTH) : windowWidth;
   const styles = React.useMemo(() => createStyles(width, height), [width, height]);
+  const { user } = useSession();
 
   const [waterAmount, setWaterAmount] = useState(0);
   const [waterHistory, setWaterHistory] = useState<WaterEntry[]>([]);
   const dailyGoal = 2000; // 2 litros por dia
 
   useEffect(() => {
-    loadWaterHistory();
-  }, []);
+    let active = true;
+    if (!user) return;
 
-  const loadWaterHistory = async () => {
-    try {
-      const history = await AsyncStorage.getItem(WATER_HISTORY_KEY);
-      if (history) {
-        setWaterHistory(JSON.parse(history));
-      }
-    } catch (error) {
-      console.error('Erro ao carregar histórico de água:', error);
-    }
-  };
+    getScopedItem(user.id, WATER_HISTORY_SCOPED_KEY, WATER_HISTORY_KEY)
+      .then(history => {
+        if (!active) return;
+        const parsed = parseWaterHistory(history);
+        setWaterHistory(parsed);
+        setWaterAmount(getWaterAmountForDate(parsed, localDateKey()));
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [user]);
 
   const saveWaterHistory = async (newHistory: WaterEntry[]) => {
     try {
-      await AsyncStorage.setItem(WATER_HISTORY_KEY, JSON.stringify(newHistory));
-    } catch (error) {
-      console.error('Erro ao salvar histórico de água:', error);
+      if (user) {
+        await setScopedItem(user.id, WATER_HISTORY_SCOPED_KEY, JSON.stringify(newHistory));
+      }
+    } catch {
+      // erro tratado na UI; sem log para não expor dados
     }
   };
 
   const addWater = (amount: number) => {
     const newAmount = waterAmount + amount;
+    const newHistory = updateWaterEntry(waterHistory, localDateKey(), newAmount);
     setWaterAmount(newAmount);
-
-    const today = new Date().toISOString().split('T')[0];
-    const existingEntry = waterHistory.find(entry => entry.date === today);
-
-    let newHistory;
-    if (existingEntry) {
-      newHistory = waterHistory.map(entry =>
-        entry.date === today ? { ...entry, amount: newAmount } : entry
-      );
-    } else {
-      newHistory = [...waterHistory, { date: today, amount: newAmount }];
-    }
-
     setWaterHistory(newHistory);
-    saveWaterHistory(newHistory);
+    void saveWaterHistory(newHistory);
   };
 
   const formatDate = (dateString: string) => {

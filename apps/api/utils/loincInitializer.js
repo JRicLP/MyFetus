@@ -145,7 +145,8 @@ async function initializeLoincTable() {
     const recordCount = countResult.rows[0]?.count || 0;
 
     if (recordCount > 0) {
-      console.log(`✓ Tabela loinc_codes já contém ${recordCount} registros. Inicialização pulada.`);
+      const logger = require('../utils/logger');
+      logger.info('Catálogo LOINC já inicializado', { recordCount });
       return;
     }
 
@@ -159,10 +160,11 @@ async function initializeLoincTable() {
         [entry.loinc, entry.canonicalTerm, aliasesJson, entry.category, entry.specimen, entry.unit]
       );
     }
-
-    console.log(`✓ Carregados ${INITIAL_LOINC_CATALOG.length} códigos LOINC iniciais no banco de dados`);
+    const logger = require('../utils/logger');
+    logger.info('Catálogo LOINC inicial carregado', { recordCount: INITIAL_LOINC_CATALOG.length });
   } catch (error) {
-    console.error('Erro ao inicializar tabela LOINC:', error.message);
+    const logger = require('../utils/logger');
+    logger.error('Falha ao inicializar catálogo LOINC', { code: 'LOINC_INIT_FAILED' });
     throw error;
   }
 }
@@ -182,7 +184,8 @@ async function getLoincCatalogFromDb() {
       unit: row.unit,
     }));
   } catch (error) {
-    console.error('Erro ao recuperar catálogo LOINC do banco:', error.message);
+    const logger = require('../utils/logger');
+    logger.error('Falha ao recuperar catálogo LOINC do banco', { code: 'LOINC_CATALOG_READ_FAILED' });
     return INITIAL_LOINC_CATALOG; // Fallback para catálogo inicial
   }
 }

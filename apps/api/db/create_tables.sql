@@ -37,7 +37,7 @@ END;
 $$;
 
 
-ALTER FUNCTION public.update_pregnant_updated_at() OWNER TO myuser;
+ALTER FUNCTION public.update_pregnant_updated_at() OWNER TO CURRENT_USER;
 
 --
 -- Name: update_updated_at_column(); Type: FUNCTION; Schema: public; Owner: myuser
@@ -58,7 +58,7 @@ END;
 $$;
 
 
-ALTER FUNCTION public.update_updated_at_column() OWNER TO myuser;
+ALTER FUNCTION public.update_updated_at_column() OWNER TO CURRENT_USER;
 
 SET default_tablespace = '';
 
@@ -80,7 +80,7 @@ CREATE TABLE public.doctors (
 );
 
 
-ALTER TABLE public.doctors OWNER TO myuser;
+ALTER TABLE public.doctors OWNER TO CURRENT_USER;
 
 --
 -- Name: doctors_id_seq; Type: SEQUENCE; Schema: public; Owner: myuser
@@ -95,7 +95,7 @@ CREATE SEQUENCE public.doctors_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.doctors_id_seq OWNER TO myuser;
+ALTER TABLE public.doctors_id_seq OWNER TO CURRENT_USER;
 
 --
 -- Name: doctors_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: myuser
@@ -118,7 +118,7 @@ CREATE TABLE public.medidas_fetais (
 );
 
 
-ALTER TABLE public.medidas_fetais OWNER TO myuser;
+ALTER TABLE public.medidas_fetais OWNER TO CURRENT_USER;
 
 --
 -- Name: medidas_fetais_id_seq; Type: SEQUENCE; Schema: public; Owner: myuser
@@ -133,7 +133,7 @@ CREATE SEQUENCE public.medidas_fetais_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.medidas_fetais_id_seq OWNER TO myuser;
+ALTER TABLE public.medidas_fetais_id_seq OWNER TO CURRENT_USER;
 
 --
 -- Name: medidas_fetais_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: myuser
@@ -165,7 +165,7 @@ CREATE TABLE public.pregnancies (
 );
 
 
-ALTER TABLE public.pregnancies OWNER TO myuser;
+ALTER TABLE public.pregnancies OWNER TO CURRENT_USER;
 
 --
 -- Name: pregnancies_id_seq; Type: SEQUENCE; Schema: public; Owner: myuser
@@ -180,7 +180,7 @@ CREATE SEQUENCE public.pregnancies_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.pregnancies_id_seq OWNER TO myuser;
+ALTER TABLE public.pregnancies_id_seq OWNER TO CURRENT_USER;
 
 --
 -- Name: pregnancies_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: myuser
@@ -203,7 +203,7 @@ CREATE TABLE public.pregnancy_events (
 );
 
 
-ALTER TABLE public.pregnancy_events OWNER TO myuser;
+ALTER TABLE public.pregnancy_events OWNER TO CURRENT_USER;
 
 --
 -- Name: pregnancy_events_id_seq; Type: SEQUENCE; Schema: public; Owner: myuser
@@ -218,7 +218,7 @@ CREATE SEQUENCE public.pregnancy_events_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.pregnancy_events_id_seq OWNER TO myuser;
+ALTER TABLE public.pregnancy_events_id_seq OWNER TO CURRENT_USER;
 
 --
 -- Name: pregnancy_events_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: myuser
@@ -249,7 +249,7 @@ CREATE TABLE public.pregnant_documents (
 );
 
 
-ALTER TABLE public.pregnant_documents OWNER TO myuser;
+ALTER TABLE public.pregnant_documents OWNER TO CURRENT_USER;
 
 --
 -- Name: pregnant_documents_id_seq; Type: SEQUENCE; Schema: public; Owner: myuser
@@ -264,7 +264,7 @@ CREATE SEQUENCE public.pregnant_documents_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.pregnant_documents_id_seq OWNER TO myuser;
+ALTER TABLE public.pregnant_documents_id_seq OWNER TO CURRENT_USER;
 
 --
 -- Name: pregnant_documents_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: myuser
@@ -367,7 +367,7 @@ CREATE TABLE public.pregnants (
 );
 
 
-ALTER TABLE public.pregnants OWNER TO myuser;
+ALTER TABLE public.pregnants OWNER TO CURRENT_USER;
 
 --
 -- Name: pregnants_id_seq; Type: SEQUENCE; Schema: public; Owner: myuser
@@ -382,7 +382,7 @@ CREATE SEQUENCE public.pregnants_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.pregnants_id_seq OWNER TO myuser;
+ALTER TABLE public.pregnants_id_seq OWNER TO CURRENT_USER;
 
 --
 -- Name: pregnants_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: myuser
@@ -409,7 +409,7 @@ CREATE TABLE public.users (
 );
 
 
-ALTER TABLE public.users OWNER TO myuser;
+ALTER TABLE public.users OWNER TO CURRENT_USER;
 
 --
 -- Name: users_id_seq; Type: SEQUENCE; Schema: public; Owner: myuser
@@ -424,7 +424,7 @@ CREATE SEQUENCE public.users_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.users_id_seq OWNER TO myuser;
+ALTER TABLE public.users_id_seq OWNER TO CURRENT_USER;
 
 --
 -- Name: users_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: myuser

@@ -11,7 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { apiUrl, fetchWithAuth } from '../utils/api';
+import { api } from '../utils/apiClient';
 
 const formatarData = (text: string) => {
   const cleaned = text.replace(/\D/g, '');
@@ -49,26 +49,16 @@ export default function CadastroMedicoScreen() {
 
     setLoading(true);
     try {
-      const response = await fetchWithAuth(apiUrl('/api/doctors'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: nome.trim(),
-          email: email.trim(),
-          password: senha,
-          birthdate: `${ano}-${mes}-${dia}`,
-          crm: crm.trim(),
-          crm_estado: crmEstado.trim().toUpperCase(),
-          especialidade: especialidade.trim() || undefined,
-          telefone: telefone.trim() || undefined,
-        }),
+      await api.post('/doctors', {
+        name: nome.trim(),
+        email: email.trim(),
+        password: senha,
+        birthdate: `${ano}-${mes}-${dia}`,
+        crm: crm.trim(),
+        crm_estado: crmEstado.trim().toUpperCase(),
+        especialidade: especialidade.trim() || undefined,
+        telefone: telefone.trim() || undefined,
       });
-
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(data?.error || 'Não foi possível criar a conta de médico');
-      }
 
       Alert.alert('Sucesso', 'Sua conta de médico foi criada com sucesso! Você já pode fazer login.', [
         { text: 'OK', onPress: () => router.push('/login') },

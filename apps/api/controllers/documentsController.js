@@ -135,7 +135,7 @@ const uploadDocument = async (req, res) => {
         error: 'pregnant_id e document_name sao obrigatorios',
       });
     }
-    if (!(await ensureCanAccessPregnant(req, res, pregnant_id))) {
+    if (!(await ensureCanAccessOwnOrLinkedPregnant(req, res, pregnant_id))) {
       await cleanupUploadedFile(req);
       return;
     }
@@ -209,7 +209,7 @@ const getDocuments = async (req, res) => {
     return res.status(400).json({ error: 'pregnant_id e obrigatorio' });
   }
   try {
-    if (!(await ensureCanAccessPregnant(req, res, pregnant_id))) return;
+    if (!(await ensureCanAccessOwnOrLinkedPregnant(req, res, pregnant_id))) return;
     const result = await client.query(
       `SELECT * FROM pregnant_documents
         WHERE pregnant_id = $1 ORDER BY uploaded_at DESC`,
@@ -240,11 +240,7 @@ const downloadDocument = async (req, res) => {
     if (!storedDocument) {
       return res.status(404).json({ error: 'Documento nao encontrado' });
     }
-    if (!(await ensureCanAccessPregnant(
-      req,
-      res,
-      storedDocument.pregnant_id
-    ))) return;
+    if (!(await ensureCanAccessOwnOrLinkedPregnant(req, res, storedDocument.pregnant_id))) return;
 
     const document = decryptDocument(storedDocument);
     const buffer = await fileCryptoService.readDecryptedFile(
@@ -436,6 +432,77 @@ const retryDocumentTextExtraction = async (req, res) => {
   }
 };
 
+async function pregnantBelongsToUser(userId, pregnantId) {
+  const result = await client.query(
+    'SELECT 1 FROM pregnants WHERE id = $1 AND user_id = $2 LIMIT 1',
+    [pregnantId, userId]
+  );
+  return result.rows.length > 0;
+}
+
+// Gestante: só os próprios documentos. Médico/admin: regra atual.
+async function ensureCanAccessOwnOrLinkedPregnant(req, res, pregnantId) {
+  if (req.user?.role === 'gestante') {
+    if (!pregnantId) {
+      res.status(400).json({ error: 'pregnant_id e obrigatorio' });
+      return false;
+    }
+    if (await pregnantBelongsToUser(req.user.id, pregnantId)) return true;
+    res.status(403).json({ error: 'Acesso negado a esta gestante' });
+    return false;
+  }
+  return ensureCanAccessPregnant(req, res, pregnantId);
+}
+
+const updateDocumentReport = async (req, res) => {
+  try {
+    const comment =
+      typeof req.body?.report_comment === 'string' ? req.body.report_comment.trim() : '';
+    if (!comment) {
+      return res.status(400).json({ error: 'report_comment e obrigatorio' });
+    }
+    if (comment.length > 5000) {
+      return res.status(400).json({ error: 'report_comment excede 5000 caracteres' });
+    }
+
+    const document = await findDocumentById(req.params.id);
+    if (!document) {
+      return res.status(404).json({ error: 'Documento nao encontrado' });
+    }
+    if (!(await ensureCanAccessPregnant(req, res, document.pregnant_id))) return;
+
+    const encrypted = cryptoService.encryptRecord(
+      { report_comment: comment },
+      'pregnant_documents'
+    );
+    const result = await client.query(
+      `UPDATE pregnant_documents
+          SET report_comment = $1,
+              status = 'reviewed',
+              reviewed_by_user_id = $2,
+              reviewed_at = CURRENT_TIMESTAMP,
+              updated_at = CURRENT_TIMESTAMP
+        WHERE id = $3
+        RETURNING *`,
+      [encrypted.report_comment, req.user.id, req.params.id]
+    );
+    audit(req, {
+      action: 'DOCUMENT_REPORT_SAVED',
+      resource: 'pregnant_documents',
+      resource_id: document.id,
+      outcome: 'SUCCESS',
+      detail: { pregnant_id: document.pregnant_id },
+    });
+    return res.json({
+      message: 'Relatorio salvo',
+      document: sanitizeDocument(result.rows[0]),
+    });
+  } catch (error) {
+    logger.error('Erro ao salvar relatorio do documento', { details: error.message });
+    return res.status(500).json({ error: 'Erro ao salvar relatorio' });
+  }
+};
+
 module.exports = {
   deleteDocument,
   downloadDocument,
@@ -448,4 +515,5 @@ module.exports = {
   sanitizeDocument,
   updateDocument,
   uploadDocument,
+  updateDocumentReport,
 };

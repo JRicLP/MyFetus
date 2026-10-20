@@ -11,8 +11,7 @@ import {
   Alert, 
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { apiUrl, fetchWithAuth } from '../../../utils/api';
+import { api } from '../../../utils/apiClient';
 
 
 
@@ -127,11 +126,8 @@ export default function VacinasScreen() {
     const fetchPatientData = async () => {
       try {
         setLoading(true);
-        const response = await fetchWithAuth(apiUrl(`/api/pregnants/${patientId}`));
-        if (!response.ok) {
-          throw new Error('Não foi possível buscar os dados da paciente');
-        }
-        const data = await response.json();
+        const response = await api.get(`/pregnants/${patientId}`);
+        const data = response.data;
         
         // Carregando dados da Tabela 'pregnants' (Vacinas)
         setAntitetanica(data.vacina_antitetanica || false);
@@ -152,7 +148,6 @@ export default function VacinasScreen() {
         setCovidDose2(formatarDataParaExibir(data.vacina_covid19_2dose));
 
       } catch (error) {
-        console.error(error);
         Alert.alert('Erro', error instanceof Error ? error.message : 'Erro de rede');
       } finally {
         setLoading(false);
@@ -169,35 +164,26 @@ export default function VacinasScreen() {
     
     try {
       // 1. ALIMENTANDO O BD (Tabela 'pregnants')
-      const response = await fetchWithAuth(apiUrl(`/api/pregnants/${patientId}`), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          vacina_antitetanica: antitetanica,
-          vacina_antitetanica_1dose: formatarDataParaSalvar(antiDose1),
-          vacina_antitetanica_2dose: formatarDataParaSalvar(antiDose2),
-          vacina_antitetanica_dtpa: formatarDataParaSalvar(antiDTpa),
-          vacina_hepatite_b: hepatiteB,
-          vacina_hepatite_b_1dose: formatarDataParaSalvar(hepDose1),
-          vacina_hepatite_b_2dose: formatarDataParaSalvar(hepDose2),
-          vacina_hepatite_b_3dose: formatarDataParaSalvar(hepDose3),
-          vacina_influenza: influenza,
-          vacina_influenza_1dose: formatarDataParaSalvar(fluData),
-          vacina_covid19: covid,
-          vacina_covid19_1dose: formatarDataParaSalvar(covidDose1),
-          vacina_covid19_2dose: formatarDataParaSalvar(covidDose2),
-        }),
+      await api.put(`/pregnants/${patientId}`, {
+        vacina_antitetanica: antitetanica,
+        vacina_antitetanica_1dose: formatarDataParaSalvar(antiDose1),
+        vacina_antitetanica_2dose: formatarDataParaSalvar(antiDose2),
+        vacina_antitetanica_dtpa: formatarDataParaSalvar(antiDTpa),
+        vacina_hepatite_b: hepatiteB,
+        vacina_hepatite_b_1dose: formatarDataParaSalvar(hepDose1),
+        vacina_hepatite_b_2dose: formatarDataParaSalvar(hepDose2),
+        vacina_hepatite_b_3dose: formatarDataParaSalvar(hepDose3),
+        vacina_influenza: influenza,
+        vacina_influenza_1dose: formatarDataParaSalvar(fluData),
+        vacina_covid19: covid,
+        vacina_covid19_1dose: formatarDataParaSalvar(covidDose1),
+        vacina_covid19_2dose: formatarDataParaSalvar(covidDose2),
       });
-
-      if (!response.ok) {
-        throw new Error('Falha ao salvar os dados');
-      }
 
       // 2. NAVEGANDO
       router.push(`/doctor/${patientId}/historico_ultrassons`);
 
     } catch (error) {
-      console.error(error);
       Alert.alert('Erro ao Salvar', error instanceof Error ? error.message : 'Erro de rede');
     } finally {
       setIsSaving(false);

@@ -11,7 +11,8 @@ import {
   Alert, 
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { apiUrl, fetchWithAuth } from '../../../utils/api';
+import { api } from '../../../utils/apiClient';
+import { parseInputInt } from '../../../utils/clinicalInput';
 
 // --- COMPONENTE REUTILIZÁVEL 'ToggleButton' ---
 type ToggleButtonProps = {
@@ -86,11 +87,6 @@ export default function GestacaoAnteriorScreen() {
   const [isSaving, setIsSaving] = useState(false);
 
   // Helper
-  const parseInputInt = (input: string) => {
-    if (input === '') return 0;
-    return parseInt(input, 10);
-  }
-  const boolToString = (val: boolean) => val ? "1" : "0";
   const intToString = (val: number) => val ? String(val) : "0";
 
   // --- useEffect para LER os dados ---
@@ -100,11 +96,8 @@ export default function GestacaoAnteriorScreen() {
     const fetchPatientData = async () => {
       try {
         setLoading(true);
-        const response = await fetchWithAuth(apiUrl(`/api/pregnants/${patientId}`));
-        if (!response.ok) {
-          throw new Error('Não foi possível buscar os dados da paciente');
-        }
-        const data = await response.json();
+        const response = await api.get(`/pregnants/${patientId}`);
+        const data = response.data;
         
         // Carregando dados da Tabela 'pregnants'
         setPartos(intToString(data.gestacao_partos));
@@ -124,7 +117,6 @@ export default function GestacaoAnteriorScreen() {
         setFinalGestacao1Ano(data.gestacao_final_gestacao_anterior_1ano || false);
 
       } catch (error) {
-        console.error(error);
         Alert.alert('Erro', error instanceof Error ? error.message : 'Erro de rede');
       } finally {
         setLoading(false);
@@ -141,7 +133,7 @@ export default function GestacaoAnteriorScreen() {
     
     try {
       // 1. ALIMENTANDO O BD (Tabela 'pregnants')
-      const response = await fetchWithAuth(apiUrl(`/api/pregnants/${patientId}`), {
+     await api.put(`/pregnants/${patientId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -163,15 +155,10 @@ export default function GestacaoAnteriorScreen() {
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('Falha ao salvar os dados');
-      }
-
       // 2. NAVEGANDO
       router.push(`/doctor/${patientId}/antecedentes_clinicos`);
 
     } catch (error) {
-      console.error(error);
       Alert.alert('Erro ao Salvar', error instanceof Error ? error.message : 'Erro de rede');
     } finally {
       setIsSaving(false);

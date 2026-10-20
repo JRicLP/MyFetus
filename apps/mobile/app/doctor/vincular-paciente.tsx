@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { apiUrl, fetchWithAuth } from '../../utils/api';
+import { api } from '../../utils/apiClient';
 
 type SearchResult = {
   pregnant_id: number;
@@ -40,20 +40,16 @@ export default function VincularPacienteScreen() {
     setNotFound(false);
 
     try {
-      const response = await fetchWithAuth(
-        apiUrl(`/api/doctor-patient-links/search?email=${encodeURIComponent(trimmedEmail)}`)
-      );
+      const response = await api.get(`/doctor-patient-links/search?email=${encodeURIComponent(trimmedEmail)}`, {
+        validateStatus: (status) => (status >= 200 && status < 300) || status === 404
+      });
 
       if (response.status === 404) {
         setNotFound(true);
         return;
       }
 
-      if (!response.ok) {
-        throw new Error('Não foi possível buscar a paciente');
-      }
-
-      const data: SearchResult = await response.json();
+      const data: SearchResult = response.data;
       setResult(data);
     } catch (error) {
       Alert.alert('Erro', error instanceof Error ? error.message : 'Erro de rede');
@@ -67,15 +63,7 @@ export default function VincularPacienteScreen() {
 
     setLinking(true);
     try {
-      const response = await fetchWithAuth(apiUrl('/api/doctor-patient-links'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pregnant_id: result.pregnant_id }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Não foi possível vincular a paciente');
-      }
+     await api.post('/doctor-patient-links', { pregnant_id: result.pregnant_id });
 
       Alert.alert(
         'Sucesso',

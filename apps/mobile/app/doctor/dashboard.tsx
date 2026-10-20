@@ -10,9 +10,9 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import { apiUrl, fetchWithAuth } from '../../utils/api';
+import { api } from '../../utils/apiClient';
+import { useSession } from '@/contexts/SessionContext';
 
 // Ícones para os status
 const statusIcons: { [key: string]: any } = {
@@ -34,8 +34,9 @@ type Patient = {
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const [doctorName, setDoctorName] = useState('Dr.');
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { user, signOut } = useSession();
+  const doctorName = user?.name ? `Dr. ${user.name.split(' ')[0]}` : 'Dr.';
+  const isAdmin = user?.role === 'admin';
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -58,27 +59,11 @@ export default function DashboardScreen() {
     try {
       setLoading(true);
 
-      // 1. Nome do Médico e papel (admin vê opções extras)
-      const userDataString = await AsyncStorage.getItem('userData');
-      if (userDataString) {
-        const userData = JSON.parse(userDataString);
-        const firstName = userData.name.split(' ')[0];
-        setDoctorName(`Dr. ${firstName}`);
-        setIsAdmin(userData.role === 'admin');
-      }
-
-      // 2. Lista de Pacientes (API Melhorada)
-      const response = await fetchWithAuth(`${apiUrl('/api/pregnants')}?_=${Date.now()}`);
-      if (!response.ok) {
-        const body = await response.text().catch(() => '');
-        console.log('Resposta de erro da API:', response.status, body);
-        throw new Error(`Erro ao buscar pacientes (${response.status})`);
-      }
-      const data = await response.json();
+      const response = await api.get(`/pregnants?_=${Date.now()}`);
+      const data = response.data;
       setPatients(data);
       setError(null);
     } catch (e) {
-      console.error(e);
       setError(e instanceof Error ? e.message : 'Erro de rede');
     } finally {
       setLoading(false);
@@ -103,6 +88,11 @@ export default function DashboardScreen() {
 
   const handleAddDoctor = () => {
     router.push('/CadastroMedico');
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.replace('/login');
   };
 
   const handleAlertPress = (patientId: string) => {
@@ -185,6 +175,14 @@ export default function DashboardScreen() {
             </TouchableOpacity>
             <TouchableOpacity style={styles.headerActionButton}>
               <Ionicons name="filter-outline" size={28} color="#555" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              accessibilityLabel="Sair da conta"
+              accessibilityRole="button"
+              onPress={handleSignOut}
+              style={styles.headerActionButton}
+            >
+              <Ionicons name="log-out-outline" size={28} color="#555" />
             </TouchableOpacity>
           </View>
         </View>

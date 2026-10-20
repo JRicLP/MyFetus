@@ -23,7 +23,8 @@ const getFallbackCatalog = () => {
     const { INITIAL_LOINC_CATALOG } = require('./loincInitializer');
     FALLBACK_CATALOG = Array.isArray(INITIAL_LOINC_CATALOG) ? INITIAL_LOINC_CATALOG : [];
   } catch (error) {
-    console.error('Erro ao carregar catálogo LOINC de fallback:', error.message);
+    const logger = require('../utils/logger');
+    logger.error('Falha ao carregar catálogo LOINC', { code: 'LOINC_FALLBACK_LOAD_FAILED' });
     FALLBACK_CATALOG = [];
   }
 
@@ -197,9 +198,11 @@ async function loadCatalogFromDb() {
     const catalog = await getLoincCatalogFromDb();
     LOINC_CATALOG = catalog;
     catalogLoaded = true;
-    console.log(`✓ Catálogo LOINC carregado em memória: ${LOINC_CATALOG.length} termos`);
+    const logger = require('../utils/logger');
+    logger.info('Catálogo LOINC carregado em memória', { termCount: LOINC_CATALOG.length });
   } catch (error) {
-    console.error('Erro ao carregar catálogo LOINC do banco:', error.message);
+    const logger = require('../utils/logger');
+    logger.error('Falha ao carregar catálogo LOINC', { code: 'LOINC_DB_LOAD_FAILED' });
     // Se falhar, mantém o catálogo em memória vazio ou usa fallback
     catalogLoaded = true;
   }

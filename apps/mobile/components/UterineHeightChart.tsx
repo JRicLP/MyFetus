@@ -18,7 +18,7 @@ import {
 type Props = {
   week: number;
   alturaUterina: number;
-  historicalData?: Array<{ week: number; alturaUterina: number }>;
+  historicalData?: { week: number; alturaUterina: number }[];
 };
 
 const COLORS = {

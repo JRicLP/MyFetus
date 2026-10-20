@@ -30,6 +30,7 @@ const {
   downloadDocument,
   deleteDocument,
   updateDocument,
+  updateDocumentReport,
   getDocumentExtractedText,
   retryDocumentTextExtraction,
 } = require('../controllers/documentsController');
@@ -41,22 +42,25 @@ const upload = multer({
     fileSize: Number(process.env.DOCUMENT_MAX_UPLOAD_BYTES || 25 * 1024 * 1024),
   },
 });
+
 const requireDocumentAccess = [authenticateToken, requireRole('medico', 'admin')];
+const requireDocumentPatientAccess = [authenticateToken, requireRole('gestante', 'medico', 'admin')];
 
 router.post(
   '/',
-  requireDocumentAccess,
+  requireDocumentPatientAccess,
   upload.fields([
     { name: 'file', maxCount: 1 },
     { name: 'document', maxCount: 1 },
   ]),
   uploadDocument
 );
-router.get('/', requireDocumentAccess, getDocuments); // lista por pregnant_id (query param)
-router.get('/:id/download', requireDocumentAccess, downloadDocument);
+router.get('/', requireDocumentPatientAccess, getDocuments);
+router.get('/:id/download', requireDocumentPatientAccess, downloadDocument);
 router.get('/:id/text', requireDocumentAccess, getDocumentExtractedText);
 router.post('/:id/extract', requireDocumentAccess, retryDocumentTextExtraction);
-router.get('/:id', requireDocumentAccess, getDocumentById); // busca o doc por id
+router.get('/:id', requireDocumentAccess, getDocumentById);
+router.put('/:id/report', requireDocumentAccess, updateDocumentReport);
 router.delete('/:id', requireDocumentAccess, deleteDocument);
 router.put('/:id', requireDocumentAccess, updateDocument);
 

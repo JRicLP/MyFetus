@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js",
+    "db:migrate:cloud": "node ./scripts/migrate.js",
     "jwt:secret": "node ./scripts/generate-jwt-secret.js",
     "jwt:test-token": "node ./scripts/generate-jwt-test-token.js",
     "jwt:rotate": "node ./scripts/rotate-jwt-secret-and-generate-token.js",
@@ -14,9 +15,13 @@
     "aes:migrate": "node ./scripts/migrate-encrypted-data.js --host=127.0.0.1 --port=5434",
     "aes:migrate:dry-run": "node ./scripts/migrate-encrypted-data.js --host=127.0.0.1 --port=5434 --dry-run",
     "extract:documents": "node workers/extractDocuments.js",
+    "test:document-worker": "node tests/documentExtractionWorker.test.js",
     "rag:ingest": "node workers/ingestRagDocuments.js",
     "rag:test-search": "node tests/ragSearch.test.js",
     "test:chunking": "node tests/chunkingService.test.js",
+    "test:health": "node --test tests/health.test.js",
+    "test:ci": "node --test tests/chunkingService.test.js tests/clinicalDataService.test.js tests/crossPatientAuthorization.test.js tests/cryptoService.test.js tests/docsRoutes.test.js tests/emailLookupService.node.test.js tests/fileCryptoService.test.js tests/generationService.test.js tests/hadlockCalculator.test.js tests/health.test.js tests/logger.test.js tests/openapiContract.test.js tests/piiSanitizer.test.js tests/securityBaseline.test.js && npm run test:document-worker",
+    "docs:check": "node --test tests/openapiContract.test.js tests/docsRoutes.test.js",
     "test:embedding": "node tests/embeddingService.test.js",
     "test:pinecone": "node tests/vectorStoreService.test.js",
     "test:pii": "node ./tests/piiSanitizer.test.js",
@@ -39,7 +44,7 @@
     "test:stress": "node ./tests/stressTest.test.js",
     "test:stress:integration": "node ./tests/stressIntegration.test.js --integration",
     "test:generation-service": "node --test ./tests/generationService.test.js",
-    "test:agent-controller": "node --test ./tests/agentController.test.js"
+    "test:agent-controller": "node --test ./tests/agentController.test.js",
     "test:hadlockCalculator": "node ./tests/hadlockCalculator.test.js",
     "test:clinical-history": "node ./tests/clinicalHistoryService.test.js"
   },
@@ -58,6 +63,11 @@
     "multer": "^2.0.0",
     "pdfjs-dist": "^4.10.38",
     "pg": "^8.16.0",
-    "tesseract.js": "^6.0.1"
+    "swagger-ui-express": "^5.0.1",
+    "tesseract.js": "^6.0.1",
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@apidevtools/swagger-parser": "^13.1.0"
   }
 }

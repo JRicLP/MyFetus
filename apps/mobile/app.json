@@ -1,22 +1,28 @@
 {
   "expo": {
     "name": "myFetus",
-    "slug": "myFetus",
+    "slug": "myfetus",
     "version": "1.0.0",
+    "extra": {
+      "eas": {
+        "projectId": "612e7ee8-0a67-4157-b925-7a0a9d80421f"
+      }
+    },
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "myfetus",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.myfetus.app"
     },
     "android": {
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "package": "com.myfetus.app"
     },
     "web": {
       "bundler": "metro",
@@ -35,7 +41,10 @@
         }
       ],
       "expo-web-browser",
-      "expo-font"
+      "expo-font",
+      "expo-status-bar",
+      "expo-secure-store",
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true

@@ -1,0 +1,1934 @@
+openapi: 3.1.0
+info:
+  title: MyFetus API
+  version: 3.0.0-dev
+  summary: API REST do MyFetus (gestante, prontuario obstetrico e apoio a decisao com IA).
+  description: |
+    Contrato HTTP da API do MyFetus (ciclo 2026.2), mantido em `apps/api/openapi.yaml`.
+
+    **Autenticacao:** a maioria das rotas exige `Authorization: Bearer <JWT>`, obtido em
+    `POST /api/users/login`. O token expira conforme `JWT_EXPIRES_IN` (padrao 8h).
+
+    **Papeis:** `gestante`, `medico` e `admin`. A extensao `x-roles` de cada operacao lista os
+    papeis aceitos pela rota; quando ausente, qualquer usuario autenticado passa pela rota.
+    Varias rotas aplicam ainda autorizacao por recurso: a gestante acessa apenas o proprio
+    registro e o medico apenas gestantes com vinculo ativo em `doctor_patient_links`.
+
+    **Exemplos:** todos os exemplos sao sinteticos. Nenhum dado real de paciente.
+
+    **Verificacao:** `tests/openapiContract.test.js` (CI) falha se uma rota do Express nao estiver
+    documentada aqui, se houver path documentado sem rota, ou se autenticacao/papeis divergirem.
+servers:
+  - url: http://localhost:3000
+    description: Desenvolvimento local
+tags:
+  - name: Sistema
+  - name: Usuarios
+  - name: Medicos
+  - name: Gestantes
+  - name: Gestacoes
+  - name: Eventos
+  - name: Documentos
+  - name: Medicoes
+  - name: Vinculos
+  - name: Sincronizacao
+  - name: LOINC (interno)
+  - name: RAG (interno)
+  - name: Agente
+  - name: Auditoria
+  - name: Crescimento
+  - name: Historico
+
+paths:
+  /health:
+    get:
+      tags: [Sistema]
+      summary: Verifica a prontidao das dependencias do backend
+      operationId: health
+      security: []
+      responses:
+        '200':
+          description: Dependencias disponiveis ou degradadas.
+          content:
+            application/json:
+              schema: { type: object }
+        '503':
+          description: Dependencia bloqueante indisponivel.
+          content:
+            application/json:
+              schema: { type: object }
+
+  /ping:
+    get:
+      tags: [Sistema]
+      summary: Verifica se o backend esta no ar
+      operationId: ping
+      security: []
+      responses:
+        '200':
+          description: Backend ativo.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+              example:
+                message: Backend funcionando corretamente.
+
+  # ---------------------------------------------------------------- Usuarios
+  /api/users:
+    post:
+      tags: [Usuarios]
+      summary: Cadastra uma gestante (usuario com papel gestante)
+      operationId: createUser
+      security: []
+      description: Rota publica com rate limit de cadastro (`REGISTER_RATE_LIMIT_MAX`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateUserRequest' }
+            example:
+              name: Maria Exemplo
+              email: maria.exemplo@example.com
+              password: senha-sintetica-123
+              birthdate: '1995-04-12'
+      responses:
+        '201':
+          description: Usuario criado (sem senha nem hashes).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    get:
+      tags: [Usuarios]
+      summary: Lista todos os usuarios
+      operationId: getUsers
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      responses:
+        '200':
+          description: Lista de usuarios.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/users/login:
+    post:
+      tags: [Usuarios]
+      summary: Autentica e retorna o JWT
+      operationId: loginUser
+      security: []
+      description: Rota publica com rate limit de login (`AUTH_RATE_LIMIT_MAX`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+            example:
+              email: maria.exemplo@example.com
+              password: senha-sintetica-123
+      responses:
+        '200':
+          description: Login bem-sucedido.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LoginResponse' }
+              example:
+                message: Login bem-sucedido
+                token: eyJhbGciOiJIUzI1NiJ9.EXEMPLO-SINTETICO.assinatura
+                user:
+                  id: 5
+                  name: Maria Exemplo
+                  email: maria.exemplo@example.com
+                  role: gestante
+                  pregnant_id: 1
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/users/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [Usuarios]
+      summary: Consulta um usuario
+      operationId: getUserById
+      security: [{ bearerAuth: [] }]
+      description: Permitido ao proprio usuario, a `admin` e ao medico com vinculo ativo com a gestante.
+      responses:
+        '200':
+          description: Usuario encontrado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundText' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    put:
+      tags: [Usuarios]
+      summary: Atualiza um usuario
+      operationId: updateUser
+      security: [{ bearerAuth: [] }]
+      description: |
+        Mesma regra de acesso do GET. Campos aceitos dependem de quem atualiza:
+        o proprio usuario altera `name`, `email`, `birthdate` e `password`; o medico vinculado
+        altera `name` e `birthdate`; `admin` tambem pode alterar `role`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateUserRequest' }
+            example:
+              name: Maria Exemplo Silva
+      responses:
+        '200':
+          description: Usuario atualizado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundText' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    delete:
+      tags: [Usuarios]
+      summary: Remove um usuario
+      operationId: deleteUser
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      responses:
+        '200':
+          description: Usuario removido.
+          content:
+            text/plain:
+              schema: { type: string }
+              example: Usuario deletado com sucesso
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundText' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  # ----------------------------------------------------------------- Medicos
+  /api/doctors:
+    post:
+      tags: [Medicos]
+      summary: Cadastra um medico (CRM/UF)
+      operationId: createDoctor
+      security: []
+      description: Rota publica com rate limit de cadastro (`REGISTER_RATE_LIMIT_MAX`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateDoctorRequest' }
+            example:
+              name: Dra. Ana Exemplo
+              email: ana.medica@example.com
+              password: senha-sintetica-123
+              birthdate: '1985-08-20'
+              crm: '000000'
+              crm_estado: PE
+              especialidade: Obstetricia
+      responses:
+        '201':
+          description: Medico criado.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user: { $ref: '#/components/schemas/User' }
+                  doctor:
+                    type: object
+                    additionalProperties: true
+                    description: Dados profissionais (CRM, UF, especialidade).
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  # --------------------------------------------------------------- Gestantes
+  /api/pregnants:
+    post:
+      tags: [Gestantes]
+      summary: Cria o registro de gestante do usuario
+      operationId: createPregnant
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin, gestante]
+      description: A gestante cria o proprio registro. `admin` pode informar `user_id` de outro usuario.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_id:
+                  type: integer
+                  description: Apenas para `admin`.
+      responses:
+        '201':
+          description: Registro criado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PregnantRecord' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    get:
+      tags: [Gestantes]
+      summary: Lista gestantes visiveis ao usuario
+      operationId: getPregnants
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin, medico]
+      description: '`admin` ve todas; `medico` ve apenas gestantes com vinculo ativo.'
+      responses:
+        '200':
+          description: Lista resumida, ordenada por nome.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/PregnantSummary' }
+              example:
+                - pregnant_id: 1
+                  user_id: 5
+                  patient_name: Maria Exemplo
+                  birthdate: '1995-04-12'
+                  semanas_gestacao: 24
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/pregnants/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [Gestantes]
+      summary: Consulta o prontuario de uma gestante
+      operationId: getPregnantById
+      security: [{ bearerAuth: [] }]
+      description: |
+        Retorna o prontuario descriptografado (dados da gestante, gestacao mais recente e eventos).
+        `admin` acessa qualquer gestante; a gestante, apenas o proprio registro; o medico, apenas
+        gestantes com vinculo ativo.
+      responses:
+        '200':
+          description: Prontuario.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PregnantDetails' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    put:
+      tags: [Gestantes]
+      summary: Atualiza dados clinicos da gestante
+      operationId: updatePregnant
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin, medico]
+      description: Apenas campos clinicos de `config/dataClassification.js` (`PREGNANT_CLINICAL_FIELDS`). Medico precisa de vinculo ativo.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              minProperties: 1
+            example:
+              altura: 1.65
+      responses:
+        '200':
+          description: Registro atualizado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PregnantRecord' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/pregnants/{id}/alerts:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [Gestantes]
+      summary: Alertas semaforicos da gestante
+      operationId: getPatientAlerts
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin, medico]
+      description: Medico precisa de vinculo ativo com a gestante.
+      responses:
+        '200':
+          description: Classificacao de risco por categoria.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AlertReport' }
+              example:
+                patient_id: '1'
+                patient_name: Maria Exemplo
+                overall_level: yellow
+                alert_counts: { green: 2, yellow: 1, red: 0 }
+                categories:
+                  pressao_arterial:
+                    level: yellow
+                    label: Pre-hipertensao
+                    detail: PA 132/86 mmHg (pre-hipertensao)
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  # --------------------------------------------------------------- Gestacoes
+  /api/pregnancies:
+    post:
+      tags: [Gestacoes]
+      summary: Registra uma gestacao
+      operationId: createPregnancy
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin, gestante, medico]
+      description: Exige acesso a gestante informada (propria gestante, medico vinculado ou admin).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreatePregnancyRequest' }
+            example:
+              pregnant_id: 1
+              weeks: 12
+              dum: '2026-06-01'
+              dpp: '2027-03-08'
+              ig_ultrassonografia: '12s2d'
+      responses:
+        '201':
+          description: Gestacao criada.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Pregnancy' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    get:
+      tags: [Gestacoes]
+      summary: Lista gestacoes visiveis ao usuario
+      operationId: getPregnancies
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin, gestante, medico]
+      description: '`admin` ve todas; medico, as das gestantes vinculadas; gestante, as proprias.'
+      responses:
+        '200':
+          description: Lista de gestacoes, mais recentes primeiro.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Pregnancy' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/pregnancies/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    put:
+      tags: [Gestacoes]
+      summary: Atualiza sinais da gestacao
+      operationId: updatePregnancy
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin, medico]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdatePregnancyRequest' }
+            example:
+              glicemia: 88
+      responses:
+        '200':
+          description: Gestacao atualizada.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Pregnancy' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundText' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  # ----------------------------------------------------------------- Eventos
+  /api/pregnancyEvents:
+    post:
+      tags: [Eventos]
+      summary: Registra um evento da gestacao
+      operationId: createEvent
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin, medico]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateEventRequest' }
+            example:
+              pregnancy_id: 11
+              descricao: Consulta de rotina sem intercorrencias
+              data_evento: '2026-09-15'
+      responses:
+        '201':
+          description: Evento criado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PregnancyEvent' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    get:
+      tags: [Eventos]
+      summary: Lista eventos de uma gestacao
+      operationId: getEvents
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin, gestante, medico]
+      description: |
+        **Atencao:** a implementacao atual le `pregnancy_id` do corpo da requisicao, mesmo sendo GET.
+        Varios clientes HTTP nao enviam corpo em GET; mantido como esta para nao alterar o
+        comportamento da rota (fora do escopo da E1-09).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pregnancy_id]
+              properties:
+                pregnancy_id: { type: integer }
+            example:
+              pregnancy_id: 11
+      responses:
+        '200':
+          description: Eventos da gestacao.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/PregnancyEvent' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/pregnancyEvents/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    put:
+      tags: [Eventos]
+      summary: Atualiza um evento
+      operationId: updatePregnancyEvent
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin, medico]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateEventRequest' }
+            example:
+              descricao: Consulta remarcada
+      responses:
+        '200':
+          description: Evento atualizado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PregnancyEvent' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundText' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  # -------------------------------------------------------------- Documentos
+  /api/documents:
+    post:
+      tags: [Documentos]
+      summary: Envia um documento (laudo/exame)
+      operationId: uploadDocument
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin, gestante, medico]
+      description: |
+        Upload multipart (limite `DOCUMENT_MAX_UPLOAD_BYTES`, padrao 25 MB). O arquivo e cifrado em
+        disco e a extracao de texto e iniciada em segundo plano. A gestante envia apenas para a
+        propria gestacao; o medico, para gestantes vinculadas.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: { $ref: '#/components/schemas/UploadDocumentRequest' }
+      responses:
+        '201':
+          description: Documento recebido.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  document: { $ref: '#/components/schemas/Document' }
+        '400':
+          description: Arquivo ausente (texto) ou campos obrigatorios ausentes (JSON).
+          content:
+            text/plain:
+              schema: { type: string }
+              example: Nenhum arquivo enviado
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    get:
+      tags: [Documentos]
+      summary: Lista documentos de uma gestante
+      operationId: getDocuments
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin, gestante, medico]
+      parameters:
+        - name: pregnant_id
+          in: query
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Documentos, mais recentes primeiro.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Document' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/documents/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [Documentos]
+      summary: Consulta metadados de um documento
+      operationId: getDocumentById
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin, medico]
+      responses:
+        '200':
+          description: Metadados do documento.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Document' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    put:
+      tags: [Documentos]
+      summary: Atualiza nome/tipo do documento
+      operationId: updateDocument
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin, medico]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateDocumentRequest' }
+            example:
+              document_name: Hemograma 2o trimestre
+      responses:
+        '200':
+          description: Documento atualizado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Document' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundText' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    delete:
+      tags: [Documentos]
+      summary: Remove um documento
+      operationId: deleteDocument
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin, medico]
+      responses:
+        '200':
+          description: Documento removido.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Message' }
+              example:
+                message: Documento removido com sucesso
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/documents/{id}/download:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [Documentos]
+      summary: Baixa o arquivo original (decifrado)
+      operationId: downloadDocument
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin, gestante, medico]
+      responses:
+        '200':
+          description: Conteudo binario do arquivo.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/documents/{id}/text:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      tags: [Documentos]
+      summary: Consulta o texto extraido do documento
+      operationId: getDocumentExtractedText
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin, medico]
+      responses:
+        '200':
+          description: Extracao concluida.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DocumentText' }
+        '202':
+          description: Extracao ainda nao concluida.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  document_id: { type: integer }
+                  extraction_status: { type: string }
+                  extraction_error: { type: [string, 'null'] }
+              example:
+                document_id: 7
+                extraction_status: processing
+                extraction_error: null
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/documents/{id}/extract:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    post:
+      tags: [Documentos]
+      summary: Reenfileira a extracao de texto
+      operationId: retryDocumentTextExtraction
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin, medico]
+      responses:
+        '202':
+          description: Documento enviado para reprocessamento.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  document_id: { type: integer }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/documents/{id}/report:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    put:
+      tags: [Documentos]
+      summary: Registra o relatorio (devolutiva) do medico sobre o documento
+      operationId: updateDocumentReport
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin, medico]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [report_comment]
+              properties:
+                report_comment:
+                  type: string
+                  maxLength: 5000
+            example:
+              report_comment: Resultados dentro da referencia. Manter acompanhamento.
+      responses:
+        '200':
+          description: Relatorio salvo.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  document: { $ref: '#/components/schemas/Document' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  # ---------------------------------------------------------------- Medicoes
+  /api/medicoes:
+    post:
+      tags: [Medicoes]
+      summary: Registra medida fetal (comprimento do femur)
+      operationId: createFetalMeasurement
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin, medico]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [idade_gestacional_semanas, comp_femur_mm]
+              properties:
+                idade_gestacional_semanas: { type: number }
+                comp_femur_mm: { type: number }
+            example:
+              idade_gestacional_semanas: 24
+              comp_femur_mm: 43
+      responses:
+        '201':
+          description: Medicao salva, com comprimento fetal estimado.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mensagem: { type: string }
+                  medicao:
+                    type: object
+                    additionalProperties: true
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  # ---------------------------------------------------------------- Vinculos
+  /api/doctor-patient-links/search:
+    get:
+      tags: [Vinculos]
+      summary: Busca gestante por e-mail para vinculo
+      operationId: searchPatientByEmail
+      security: [{ bearerAuth: [] }]
+      x-roles: [medico]
+      parameters:
+        - name: email
+          in: query
+          required: true
+          schema: { type: string, format: email }
+          example: maria.exemplo@example.com
+      responses:
+        '200':
+          description: Gestante encontrada.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pregnant_id: { type: integer }
+                  patient_name: { type: string }
+                  patient_email: { type: string }
+                  already_linked: { type: boolean }
+              example:
+                pregnant_id: 1
+                patient_name: Maria Exemplo
+                patient_email: maria.exemplo@example.com
+                already_linked: false
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/doctor-patient-links:
+    post:
+      tags: [Vinculos]
+      summary: Vincula o medico autenticado a uma gestante
+      operationId: createLink
+      security: [{ bearerAuth: [] }]
+      x-roles: [medico]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pregnant_id]
+              properties:
+                pregnant_id: { type: integer }
+            example:
+              pregnant_id: 1
+      responses:
+        '201':
+          description: Vinculo criado ou reativado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DoctorPatientLink' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/doctor-patient-links/{pregnantId}:
+    parameters:
+      - name: pregnantId
+        in: path
+        required: true
+        schema: { type: integer }
+    delete:
+      tags: [Vinculos]
+      summary: Encerra o vinculo do medico autenticado com a gestante
+      operationId: removeLink
+      security: [{ bearerAuth: [] }]
+      x-roles: [medico]
+      responses:
+        '200':
+          description: Vinculo encerrado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DoctorPatientLink' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  # ----------------------------------------------------------- Sincronizacao
+  /api/sync:
+    post:
+      tags: [Sincronizacao]
+      summary: Sincronizacao administrativa de tabelas permitidas
+      operationId: syncData
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      description: Aplica alteracoes em lote numa transacao. Apenas tabelas/colunas da whitelist de `utils/syncPolicy.js`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                last_sync_timestamp: { type: [string, 'null'], format: date-time }
+                changes:
+                  type: object
+                  description: Mapa tabela -> { created, updated }.
+                  additionalProperties:
+                    type: object
+                    properties:
+                      created: { type: array, items: { type: object } }
+                      updated: { type: array, items: { type: object } }
+      responses:
+        '200':
+          description: Sincronizacao concluida.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  new_sync_timestamp: { type: string, format: date-time }
+                  server_changes: { type: object, additionalProperties: true }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  # ------------------------------------------------------------------- LOINC
+  /api/internal/loinc/term:
+    post:
+      tags: [LOINC (interno)]
+      summary: Mapeia um termo clinico para LOINC
+      operationId: mapSingleTerm
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [term]
+              properties:
+                term: { type: string }
+            example:
+              term: Hemoglobina
+      responses:
+        '200':
+          description: Resultado do mapeamento.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LoincResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/internal/loinc/text:
+    post:
+      tags: [LOINC (interno)]
+      summary: Mapeia termos LOINC em um bloco de texto
+      operationId: mapTextBlock
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string }
+            example:
+              text: 'Hemoglobina: 12,1 g/dL. Glicose em jejum: 84 mg/dL.'
+      responses:
+        '200':
+          description: Termos mapeados e resumo.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LoincResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  # --------------------------------------------------------------------- RAG
+  /api/internal/rag/search:
+    post:
+      tags: [RAG (interno)]
+      summary: Busca semantica na base de diretrizes
+      operationId: searchKnowledgeBase
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RagSearchRequest' }
+            example:
+              query: conduta na pre-eclampsia
+              topK: 3
+      responses:
+        '200':
+          description: Trechos mais relevantes.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  source: { type: string }
+                  query: { type: string }
+                  resultados:
+                    type: array
+                    items: { $ref: '#/components/schemas/RagChunk' }
+                  total: { type: integer }
+                  tempo_ms: { type: integer }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/internal/rag/chat:
+    post:
+      tags: [RAG (interno)]
+      summary: Chat clinico (busca + geracao com fontes)
+      operationId: askClinicalChat
+      security: [{ bearerAuth: [] }]
+      description: A pergunta e sanitizada (PII) antes de ir ao LLM.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RagChatRequest' }
+            example:
+              query: Quais sinais de alarme na gestacao?
+      responses:
+        '200':
+          description: Resposta com fontes citadas.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RagChatResponse' }
+              example:
+                source: rag-v2-gemini
+                query: Quais sinais de alarme na gestacao?
+                resposta: Resposta sintetica de exemplo. Procure atendimento em caso de sangramento.
+                fontes:
+                  - fonte: Manual MS Gestacao Alto Risco
+                    secao: Sinais de alarme
+                    relevancia: 0.8731
+                tempo_ms: 1240
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/internal/rag/chat/agents:
+    post:
+      tags: [RAG (interno)]
+      summary: Chat multiagente (materno/fetal)
+      operationId: askClinicalAgentsChat
+      security: [{ bearerAuth: [] }]
+      description: |
+        Quando `patient_id` e informado, o contexto clinico e carregado com a mesma autorizacao por
+        recurso do prontuario (gestante propria, medico vinculado ou admin), sem identificadores.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RagAgentsRequest' }
+            example:
+              query: A paciente relata pressao 135/85, o que observar?
+              patient_id: 1
+      responses:
+        '200':
+          description: Resposta sintetizada pelos agentes.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RagAgentsResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/internal/rag/stats:
+    get:
+      tags: [RAG (interno)]
+      summary: Estatisticas do indice vetorial
+      operationId: getRAGStats
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      responses:
+        '200':
+          description: Estatisticas do Pinecone.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  source: { type: string }
+                  stats: { type: object, additionalProperties: true }
+                  ambiente: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  # ------------------------------------------------------------------ Agente
+  /api/agent/maternal-analysis:
+    post:
+      tags: [Agente]
+      summary: Analise do agente materno sobre o prontuario de uma gestante
+      operationId: handleMaternalAnalysis
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin, medico]
+      description: |
+        `medico` precisa de vinculo ativo com a gestante. Para medico, ID sem vinculo e ID inexistente
+        recebem o mesmo `403` (evita enumeracao de IDs). Rate limit `CLINICAL_RATE_LIMIT_MAX`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MaternalAnalysisRequest' }
+            example:
+              patientId: 1
+              query: A paciente apresenta cefaleia. O que as diretrizes recomendam?
+      responses:
+        '200':
+          description: Analise gerada.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MaternalAnalysisResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  # --------------------------------------------------------------- Auditoria
+  /api/admin/audit:
+    get:
+      tags: [Auditoria]
+      summary: Consulta a trilha de auditoria
+      operationId: listAuditLogs
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, default: 50 }, description: Limitado ao maximo do servidor. }
+        - { name: actor_id, in: query, schema: { type: integer } }
+        - { name: action, in: query, schema: { type: string }, example: USER_LOGIN }
+        - { name: resource, in: query, schema: { type: string }, example: users }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+      responses:
+        '200':
+          description: Pagina de registros.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuditPage' }
+              example:
+                page: 1
+                limit: 50
+                total: 1
+                results:
+                  - id: 1
+                    created_at: '2026-10-01T12:00:00Z'
+                    actor_id: 1
+                    actor_role: admin
+                    action: USER_LOGIN
+                    resource: users
+                    resource_id: '1'
+                    ip_address: 127.0.0.1
+                    user_agent: exemplo
+                    outcome: SUCCESS
+                    detail: { role: admin }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  # ------------------------------------------------------------- Crescimento
+  /api/growth/percentile:
+    post:
+      tags: [Crescimento]
+      summary: Calcula o percentil de peso fetal estimado (Hadlock)
+      operationId: calculatePercentile
+      security: [{ bearerAuth: [] }]
+      description: Qualquer usuario autenticado. Rate limit `CLINICAL_RATE_LIMIT_MAX`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PercentileRequest' }
+            example:
+              gestationalAgeWeeks: 24
+              biometrics: { dbp: 60, cc: 220, ca: 200, cf: 43 }
+      responses:
+        '200':
+          description: Peso estimado e percentil.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PercentileResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /api/growth/chart:
+    get:
+      tags: [Crescimento]
+      summary: Curvas de referencia P10/P50/P90 por semana
+      operationId: getGrowthChart
+      security: [{ bearerAuth: [] }]
+      description: Qualquer usuario autenticado. Rate limit `CLINICAL_RATE_LIMIT_MAX`.
+      responses:
+        '200':
+          description: Pontos da curva de Hadlock.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/GrowthChartPoint' }
+              example:
+                - { semana: 10, p10: 29, p50: 35, p90: 40 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  # --------------------------------------------------------------- Historico
+  /api/history/pregnancies/{pregnancyId}:
+    parameters:
+      - $ref: '#/components/parameters/PregnancyIdPath'
+    get:
+      tags: [Historico]
+      summary: Historico clinico (biometrias fetais e pesos maternos)
+      operationId: getClinicalHistory
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin, gestante, medico]
+      parameters:
+        - $ref: '#/components/parameters/HistoryFrom'
+        - $ref: '#/components/parameters/HistoryTo'
+        - $ref: '#/components/parameters/HistoryOrder'
+        - $ref: '#/components/parameters/HistoryLimit'
+      responses:
+        '200':
+          description: Series historicas da gestacao.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pregnancy_id: { type: integer }
+                  fetal_biometries:
+                    type: array
+                    items: { $ref: '#/components/schemas/FetalBiometry' }
+                  maternal_weights:
+                    type: array
+                    items: { $ref: '#/components/schemas/MaternalWeight' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/history/pregnancies/{pregnancyId}/fetal-biometries:
+    parameters:
+      - $ref: '#/components/parameters/PregnancyIdPath'
+    get:
+      tags: [Historico]
+      summary: Lista biometrias fetais
+      operationId: getFetalBiometries
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin, gestante, medico]
+      parameters:
+        - $ref: '#/components/parameters/HistoryFrom'
+        - $ref: '#/components/parameters/HistoryTo'
+        - $ref: '#/components/parameters/HistoryOrder'
+        - $ref: '#/components/parameters/HistoryLimit'
+      responses:
+        '200':
+          description: Biometrias registradas.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/FetalBiometry' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post:
+      tags: [Historico]
+      summary: Registra biometria fetal
+      operationId: createFetalBiometry
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin, medico]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateFetalBiometryRequest' }
+            example:
+              gestational_age_weeks: 24
+              dbp_mm: 60
+              cc_mm: 220
+              ca_mm: 200
+              cf_mm: 43
+              measured_at: '2026-09-15'
+      responses:
+        '201':
+          description: Biometria registrada (com peso estimado e percentil calculados no servidor).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FetalBiometry' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/history/pregnancies/{pregnancyId}/maternal-weights:
+    parameters:
+      - $ref: '#/components/parameters/PregnancyIdPath'
+    get:
+      tags: [Historico]
+      summary: Lista pesos maternos
+      operationId: getMaternalWeights
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin, gestante, medico]
+      parameters:
+        - $ref: '#/components/parameters/HistoryFrom'
+        - $ref: '#/components/parameters/HistoryTo'
+        - $ref: '#/components/parameters/HistoryOrder'
+        - $ref: '#/components/parameters/HistoryLimit'
+      responses:
+        '200':
+          description: Pesos registrados.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/MaternalWeight' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post:
+      tags: [Historico]
+      summary: Registra peso materno
+      operationId: createMaternalWeight
+      security: [{ bearerAuth: [] }]
+      x-roles: [admin, medico]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateMaternalWeightRequest' }
+            example:
+              weight_kg: 68.4
+              measured_at: '2026-09-15'
+      responses:
+        '201':
+          description: Peso registrado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MaternalWeight' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token obtido em `POST /api/users/login`. Payload `{ id, role }`.
+
+  parameters:
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
+    PregnancyIdPath:
+      name: pregnancyId
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
+    HistoryFrom:
+      name: from
+      in: query
+      schema: { type: string, format: date }
+      description: Data inicial (YYYY-MM-DD).
+    HistoryTo:
+      name: to
+      in: query
+      schema: { type: string, format: date }
+      description: Data final (YYYY-MM-DD); nao pode ser anterior a `from`.
+    HistoryOrder:
+      name: order
+      in: query
+      schema: { type: string, enum: [asc, desc], default: asc }
+    HistoryLimit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 500, default: 200 }
+
+  responses:
+    BadRequest:
+      description: Requisicao invalida.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: Nenhum campo valido para atualizar }
+    Unauthorized:
+      description: Token ausente, malformado, invalido ou expirado (ou credenciais invalidas no login).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: Token inválido ou expirado }
+    Forbidden:
+      description: 'Papel nao autorizado ou sem acesso ao recurso (ex.: medico sem vinculo).'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: Acesso negado }
+    NotFound:
+      description: Recurso nao encontrado.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: Gestante nao encontrada }
+    NotFoundText:
+      description: Recurso nao encontrado (resposta em texto puro).
+      content:
+        text/plain:
+          schema: { type: string }
+          example: Usuario nao encontrado
+    Conflict:
+      description: E-mail ja cadastrado.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: Email ja cadastrado }
+    TooManyRequests:
+      description: Limite de requisicoes excedido.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: Muitas tentativas. Tente novamente mais tarde. }
+    InternalError:
+      description: Erro interno.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: Erro interno }
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+        details: { type: string }
+    Message:
+      type: object
+      properties:
+        message: { type: string }
+    Role:
+      type: string
+      enum: [gestante, medico, admin]
+
+    User:
+      type: object
+      description: Usuario sem senha, hash de lookup ou versao de chave.
+      additionalProperties: true
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        email: { type: string, format: email }
+        birthdate: { type: string, format: date }
+        role: { $ref: '#/components/schemas/Role' }
+        created_at: { type: string, format: date-time }
+    CreateUserRequest:
+      type: object
+      required: [name, email, password, birthdate]
+      properties:
+        name: { type: string, minLength: 1 }
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8 }
+        birthdate: { type: string, format: date }
+    UpdateUserRequest:
+      type: object
+      minProperties: 1
+      properties:
+        name: { type: string }
+        email: { type: string, format: email }
+        birthdate: { type: string, format: date }
+        password: { type: string, minLength: 8 }
+        role: { $ref: '#/components/schemas/Role' }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+    LoginResponse:
+      type: object
+      properties:
+        message: { type: string }
+        token: { type: string, description: JWT para o header Authorization. }
+        user:
+          type: object
+          properties:
+            id: { type: integer }
+            name: { type: string }
+            email: { type: string }
+            role: { $ref: '#/components/schemas/Role' }
+            pregnant_id: { type: [integer, 'null'] }
+    CreateDoctorRequest:
+      type: object
+      required: [name, email, password, birthdate, crm, crm_estado]
+      properties:
+        name: { type: string }
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8 }
+        birthdate: { type: string, format: date }
+        crm: { type: string }
+        crm_estado: { type: string, minLength: 2, maxLength: 2, description: UF do CRM. }
+        especialidade: { type: string }
+        telefone: { type: string }
+
+    PregnantRecord:
+      type: object
+      additionalProperties: true
+      properties:
+        id: { type: integer }
+        user_id: { type: integer }
+    PregnantSummary:
+      type: object
+      properties:
+        pregnant_id: { type: integer }
+        user_id: { type: integer }
+        patient_name: { type: string }
+        birthdate: { type: string, format: date }
+        semanas_gestacao: { type: [integer, 'null'] }
+    PregnantDetails:
+      type: object
+      description: Prontuario descriptografado (campos clinicos, gestacao mais recente e eventos).
+      additionalProperties: true
+      properties:
+        id: { type: integer }
+        user_id: { type: integer }
+        patient_name: { type: string }
+        birthdate: { type: string, format: date }
+    AlertReport:
+      type: object
+      properties:
+        patient_id: { type: string }
+        patient_name: { type: string }
+        overall_level: { type: string, enum: [green, yellow, red] }
+        alert_counts:
+          type: object
+          properties:
+            green: { type: integer }
+            yellow: { type: integer }
+            red: { type: integer }
+        categories:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              level: { type: string, enum: [green, yellow, red] }
+              label: { type: string }
+              detail: { type: string }
+
+    Pregnancy:
+      type: object
+      additionalProperties: true
+      properties:
+        id: { type: integer }
+        pregnant_id: { type: integer }
+        weeks: { type: integer }
+        is_checked: { type: boolean }
+        dum: { type: string, format: date }
+        dpp: { type: string, format: date }
+        ccn: { type: number }
+        dgm: { type: number }
+        glicemia: { type: number }
+        frequencia_cardiaca: { type: number }
+        altura_uterina: { type: number }
+        regularidade_do_ciclo: { type: boolean }
+        ig_ultrassonografia: { type: string }
+        created_at: { type: string, format: date-time }
+    CreatePregnancyRequest:
+      type: object
+      required: [pregnant_id, dum, dpp, ig_ultrassonografia]
+      properties:
+        pregnant_id: { type: integer }
+        weeks: { type: integer }
+        is_checked: { type: boolean, default: false }
+        dum: { type: string, format: date }
+        dpp: { type: string, format: date }
+        ccn: { type: number, default: 0 }
+        dgm: { type: number, default: 0 }
+        glicemia: { type: number, default: 0 }
+        frequencia_cardiaca: { type: number, default: 0 }
+        altura_uterina: { type: number, default: 0 }
+        regularidade_do_ciclo: { type: boolean, default: true }
+        ig_ultrassonografia: { type: string }
+    UpdatePregnancyRequest:
+      type: object
+      minProperties: 1
+      properties:
+        glicemia: { type: number }
+        frequencia_cardiaca: { type: number }
+        altura_uterina: { type: number }
+
+    PregnancyEvent:
+      type: object
+      additionalProperties: true
+      properties:
+        id: { type: integer }
+        pregnancy_id: { type: integer }
+        descricao: { type: string }
+        data_evento: { type: string, format: date }
+        created_at: { type: string, format: date-time }
+    CreateEventRequest:
+      type: object
+      required: [pregnancy_id, descricao, data_evento]
+      properties:
+        pregnancy_id: { type: integer }
+        descricao: { type: string }
+        data_evento: { type: string, format: date }
+    UpdateEventRequest:
+      type: object
+      minProperties: 1
+      properties:
+        descricao: { type: string }
+        data_evento: { type: string, format: date }
+
+    Document:
+      type: object
+      description: Metadados do documento (sem caminho de arquivo nem texto extraido).
+      additionalProperties: true
+      properties:
+        id: { type: integer }
+        pregnant_id: { type: integer }
+        document_name: { type: string }
+        document_type: { type: string }
+        status: { type: string }
+        extraction_status: { type: string }
+        report_comment: { type: [string, 'null'] }
+        reviewed_by_user_id: { type: [integer, 'null'] }
+        reviewed_at: { type: [string, 'null'], format: date-time }
+        uploaded_at: { type: string, format: date-time }
+    UploadDocumentRequest:
+      type: object
+      required: [pregnant_id, document_name]
+      properties:
+        file:
+          type: string
+          format: binary
+          description: Arquivo do exame (campo `file` ou `document`).
+        document:
+          type: string
+          format: binary
+        pregnant_id: { type: integer }
+        document_name: { type: string }
+        document_type: { type: string, description: 'Padrao: mimetype do arquivo.' }
+    UpdateDocumentRequest:
+      type: object
+      minProperties: 1
+      properties:
+        document_name: { type: string }
+        document_type: { type: string }
+    DocumentText:
+      type: object
+      properties:
+        document_id: { type: integer }
+        extraction_status: { type: string }
+        extraction_method: { type: [string, 'null'] }
+        extraction_confidence: { type: [number, 'null'] }
+        extraction_error: { type: [string, 'null'] }
+        extraction_attempts: { type: integer }
+        extracted_at: { type: [string, 'null'], format: date-time }
+        extracted_text: { type: string }
+
+    DoctorPatientLink:
+      type: object
+      properties:
+        id: { type: integer }
+        doctor_id: { type: integer }
+        pregnant_id: { type: integer }
+        status: { type: string, enum: [active, inactive] }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    LoincResponse:
+      type: object
+      properties:
+        source: { type: string }
+        input: { type: string }
+        result: { type: object, additionalProperties: true }
+        summary: { type: object, additionalProperties: true }
+
+    RagSearchRequest:
+      type: object
+      required: [query]
+      properties:
+        query: { type: string, minLength: 1 }
+        topK: { type: integer, minimum: 1, maximum: 20, default: 5 }
+        filtros: { type: object, additionalProperties: true, description: Filtro de metadados do Pinecone. }
+    RagChatRequest:
+      type: object
+      required: [query]
+      properties:
+        query: { type: string, minLength: 1 }
+        topK: { type: integer, minimum: 1, maximum: 20, default: 5 }
+    RagAgentsRequest:
+      type: object
+      required: [query]
+      properties:
+        query: { type: string, minLength: 1 }
+        topK: { type: integer, minimum: 1, maximum: 20, default: 5 }
+        patient_id: { type: integer, description: Opcional. Alias aceito - `patientId`. }
+    RagChunk:
+      type: object
+      properties:
+        trecho: { type: string }
+        fonte: { type: string }
+        pagina: { type: [integer, 'null'] }
+        secao: { type: [string, 'null'] }
+        relevancia: { type: number }
+        documento_id: { type: [string, 'null'] }
+    RagSource:
+      type: object
+      properties:
+        fonte: { type: string }
+        secao: { type: [string, 'null'] }
+        relevancia: { type: number }
+    RagChatResponse:
+      type: object
+      properties:
+        source: { type: string }
+        query: { type: string }
+        resposta: { type: string }
+        fontes:
+          type: array
+          items: { $ref: '#/components/schemas/RagSource' }
+        tempo_ms: { type: integer }
+    RagAgentsResponse:
+      type: object
+      properties:
+        source: { type: string }
+        query: { type: string }
+        resposta: { type: string }
+        needs_human_review: { type: boolean }
+        ambiguity_reason: { type: [string, 'null'] }
+        maternal_analysis: { type: string }
+        fetal_analysis: { type: string }
+        fontes:
+          type: array
+          items: { $ref: '#/components/schemas/RagSource' }
+        tempo_ms: { type: integer }
+
+    MaternalAnalysisRequest:
+      type: object
+      required: [patientId, query]
+      properties:
+        patientId:
+          type: [integer, string]
+          description: ID da gestante (inteiro positivo; string numerica tambem e aceita).
+        query: { type: string }
+    MaternalAnalysisResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        analysis: { type: string }
+        metadata:
+          type: object
+          properties:
+            patientId: { type: [integer, string] }
+            timestamp: { type: string, format: date-time }
+
+    AuditPage:
+      type: object
+      properties:
+        page: { type: integer }
+        limit: { type: integer }
+        total: { type: integer }
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              created_at: { type: string, format: date-time }
+              actor_id: { type: [integer, 'null'] }
+              actor_role: { type: [string, 'null'] }
+              action: { type: string }
+              resource: { type: string }
+              resource_id: { type: [string, 'null'] }
+              ip_address: { type: [string, 'null'] }
+              user_agent: { type: [string, 'null'] }
+              outcome: { type: string }
+              detail: { type: [object, 'null'], additionalProperties: true }
+
+    PercentileRequest:
+      type: object
+      required: [gestationalAgeWeeks, biometrics]
+      properties:
+        gestationalAgeWeeks: { type: number }
+        biometrics:
+          type: object
+          description: Medidas em milimetros (todas maiores que zero).
+          required: [dbp, cc, ca, cf]
+          properties:
+            dbp: { type: number, exclusiveMinimum: 0 }
+            cc: { type: number, exclusiveMinimum: 0 }
+            ca: { type: number, exclusiveMinimum: 0 }
+            cf: { type: number, exclusiveMinimum: 0 }
+    PercentileResponse:
+      type: object
+      properties:
+        estimatedWeightGrams: { type: integer }
+        expectedMedianWeight: { type: integer }
+        percentile: { type: number }
+        zScore: { type: number }
+    GrowthChartPoint:
+      type: object
+      properties:
+        semana: { type: integer }
+        p10: { type: number }
+        p50: { type: number }
+        p90: { type: number }
+
+    FetalBiometry:
+      type: object
+      additionalProperties: true
+      properties:
+        id: { type: integer }
+        pregnancy_id: { type: integer }
+        measured_at: { type: string, format: date }
+        gestational_age_weeks: { type: number }
+        dbp_mm: { type: number }
+        cc_mm: { type: number }
+        ca_mm: { type: number }
+        cf_mm: { type: number }
+        notes: { type: [string, 'null'] }
+    CreateFetalBiometryRequest:
+      type: object
+      required: [gestational_age_weeks, dbp_mm, cc_mm, ca_mm, cf_mm]
+      properties:
+        gestational_age_weeks: { type: number, minimum: 10, maximum: 42 }
+        dbp_mm: { type: number, exclusiveMinimum: 0 }
+        cc_mm: { type: number, exclusiveMinimum: 0 }
+        ca_mm: { type: number, exclusiveMinimum: 0 }
+        cf_mm: { type: number, exclusiveMinimum: 0 }
+        measured_at: { type: string, format: date, description: Padrao - data atual. }
+        notes: { type: string, maxLength: 2000 }
+    MaternalWeight:
+      type: object
+      additionalProperties: true
+      properties:
+        id: { type: integer }
+        pregnancy_id: { type: integer }
+        measured_at: { type: string, format: date }
+        weight_kg: { type: number }
+        notes: { type: [string, 'null'] }
+    CreateMaternalWeightRequest:
+      type: object
+      required: [weight_kg]
+      properties:
+        weight_kg: { type: number, exclusiveMinimum: 0, maximum: 500 }
+        measured_at: { type: string, format: date, description: Padrao - data atual. }
+        notes: { type: string, maxLength: 2000 }

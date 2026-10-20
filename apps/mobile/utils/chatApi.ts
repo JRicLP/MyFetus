@@ -1,4 +1,4 @@
-import { apiUrl, fetchWithAuth } from './api';
+import { api } from './apiClient';
 
 export interface ChatFonte {
   fonte: string;
@@ -16,17 +16,7 @@ export interface ChatResponse {
  * em POST /api/internal/rag/chat.
  */
 export async function askClinicalChat(query: string): Promise<ChatResponse> {
-  const response = await fetchWithAuth(apiUrl('/api/internal/rag/chat'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query }),
-  });
-
-  if (!response.ok) {
-    const body = await response.json().catch(() => null);
-    throw new Error(body?.error || 'Falha ao consultar o assistente clínico.');
-  }
-
-  const data = await response.json();
+  const response = await api.post('/internal/rag/chat', { query });
+  const data = response.data;
   return { resposta: data.resposta, fontes: data.fontes || [] };
 }

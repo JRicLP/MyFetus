@@ -1,6 +1,7 @@
 const client = require('../backend');
 const logger = require('../utils/logger');
 const { audit } = require('../services/auditService');
+const { ensureCanAccessPregnant } = require('../utils/clinicalAccess');
 
 const TRAFFIC = { GREEN: 'green', YELLOW: 'yellow', RED: 'red' };
 
@@ -165,6 +166,10 @@ const getPatientAlerts = async (req, res) => {
   const { id } = req.params;
 
   try {
+    // Alertas agregam dados clínicos sensíveis. Autoriza antes de carregar o
+    // prontuário, inclusive para impedir acesso fora do vínculo ativo.
+    if (!(await ensureCanAccessPregnant(req, res, id))) return;
+
     const result = await client.query(
       `SELECT
         u.name AS patient_name,
