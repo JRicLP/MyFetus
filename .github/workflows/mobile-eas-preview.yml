@@ -1,0 +1,110 @@
+name: Mobile EAS preview
+
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: "Motivo ou referência deste APK"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-eas-preview
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Android preview APK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      - name: Install mobile dependencies
+        run: npm ci
+
+      - name: Validate mobile project
+        run: |
+          npm run lint
+          npm run typecheck
+          npm run test:ci
+          npx expo config --json > /tmp/myfetus-mobile-config.json
+
+      - name: Build APK with EAS
+        id: eas-build
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EAS_BUILD_MESSAGE: ${{ inputs.message }}
+        run: |
+          if [[ -z "${EXPO_TOKEN:-}" ]]; then
+            echo "The EXPO_TOKEN repository secret is required." >&2
+            exit 1
+          fi
+
+          build_args=(
+            --platform android
+            --profile preview
+            --non-interactive
+            --json
+          )
+
+          if [[ -n "${EAS_BUILD_MESSAGE:-}" ]]; then
+            build_args+=(--message "${EAS_BUILD_MESSAGE}")
+          fi
+
+          npx eas-cli@latest build "${build_args[@]}" > /tmp/myfetus-eas-build.json
+
+          BUILD_ID=$(node -e '
+            const fs = require("fs");
+            const payload = JSON.parse(fs.readFileSync("/tmp/myfetus-eas-build.json", "utf8"));
+            const builds = Array.isArray(payload) ? payload : [payload];
+            const build = builds.find(item => item.platform === "ANDROID") ?? builds[0];
+            if (!build?.id) throw new Error("EAS did not return a build ID");
+            process.stdout.write(build.id);
+          ')
+
+          echo "EAS build: ${BUILD_ID}"
+          echo "build-id=${BUILD_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Download APK from EAS
+        working-directory: apps/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          BUILD_ID: ${{ steps.eas-build.outputs.build-id }}
+        run: |
+          mkdir -p artifacts
+
+          DOWNLOAD_RESULT=$(npx eas-cli@latest build:download \
+            --build-id "$BUILD_ID" \
+            --json \
+            --non-interactive)
+
+          APK_PATH=$(node -e '
+            const result = JSON.parse(process.argv[1]);
+            if (!result.path) throw new Error("EAS did not return an APK path");
+            process.stdout.write(result.path);
+          ' "$DOWNLOAD_RESULT")
+
+          cp "$APK_PATH" "artifacts/myfetus-preview-${GITHUB_RUN_NUMBER}.apk"
+          ls -lh artifacts/*.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: myfetus-preview-apk-${{ github.run_number }}
+          path: apps/mobile/artifacts/*.apk
+          if-no-files-found: error
+          retention-days: 14

@@ -1,0 +1,102 @@
+appId: com.myfetus.app
+
+---
+
+# E2E-120: pedido -> upload -> extração -> revisão -> devolutiva.
+# Todas as variáveis são fornecidas pelo seed do workflow; os dados são
+# sintéticos e não devem ser substituídos por credenciais reais.
+- launchApp:
+    clearState: true
+- tapOn:
+    id: e2e-login-email
+- inputText: ${E2E_DOCTOR_EMAIL}
+- tapOn:
+    id: e2e-login-password
+- inputText: ${E2E_PASSWORD}
+- tapOn:
+    id: e2e-login-submit
+- assertVisible: "Qual paciente você quer ver?"
+
+# O deep link evita atravessar as telas clínicas que não fazem parte deste
+# cenário e mantém o teste focado no ciclo de exames.
+- openLink: myfetus://doctor/${E2E_PREGNANT_ID}/historico_exames
+- assertVisible: "Solicitar exame"
+- tapOn:
+    id: e2e-doctor-exam-name
+- inputText: ${E2E_EXAM_NAME}
+- tapOn:
+    id: e2e-doctor-exam-instructions
+- inputText: "Usar somente o PDF sintetico fornecido pelo teste."
+- tapOn:
+    id: e2e-create-exam-request
+- assertVisible: "Solicitação enviada para a gestante."
+- tapOn: "OK"
+
+# Troca para a conta sintética da gestante.
+- openLink: myfetus://doctor/dashboard
+- tapOn:
+    id: e2e-doctor-sign-out
+- assertVisible: "E-mail"
+- tapOn:
+    id: e2e-login-email
+- inputText: ${E2E_PATIENT_EMAIL}
+- tapOn:
+    id: e2e-login-password
+- inputText: ${E2E_PASSWORD}
+- tapOn:
+    id: e2e-login-submit
+- assertVisible: "Meu Bebê"
+- tapOn: "Exames"
+- assertVisible: "Solicitações do médico"
+- tapOn:
+    text: ${E2E_EXAM_NAME}
+- tapOn:
+    id: e2e-upload-exam
+
+# O PDF é empurrado para Download antes do fluxo começar; o DocumentsUI o
+# apresenta na lista de arquivos recentes do emulador.
+- tapOn: "synthetic-lab-report.pdf"
+- assertVisible: "Exame enviado. Aguarde o relatório do médico."
+- tapOn: "OK"
+
+# O médico revisa o documento recebido.
+- tapOn: "Início"
+- tapOn:
+    id: e2e-patient-sign-out
+- assertVisible: "E-mail"
+- tapOn:
+    id: e2e-login-email
+- inputText: ${E2E_DOCTOR_EMAIL}
+- tapOn:
+    id: e2e-login-password
+- inputText: ${E2E_PASSWORD}
+- tapOn:
+    id: e2e-login-submit
+- assertVisible: "Qual paciente você quer ver?"
+- openLink: myfetus://doctor/${E2E_PREGNANT_ID}/historico_exames
+- assertVisible: "synthetic-lab-report.pdf"
+- tapOn: "synthetic-lab-report.pdf"
+- tapOn:
+    id: e2e-doctor-report
+- inputText: ${E2E_REPORT_TEXT}
+- tapOn:
+    id: e2e-save-doctor-report
+- assertVisible: "Relatório enviado para a paciente."
+- tapOn: "OK"
+
+# A devolutiva precisa aparecer para a conta da gestante.
+- openLink: myfetus://doctor/dashboard
+- tapOn:
+    id: e2e-doctor-sign-out
+- assertVisible: "E-mail"
+- tapOn:
+    id: e2e-login-email
+- inputText: ${E2E_PATIENT_EMAIL}
+- tapOn:
+    id: e2e-login-password
+- inputText: ${E2E_PASSWORD}
+- tapOn: e2e-login-submit
+- assertVisible: "Meu Bebê"
+- tapOn: "Exames"
+- assertVisible: "Relatório do médico"
+- assertVisible: ${E2E_REPORT_TEXT}

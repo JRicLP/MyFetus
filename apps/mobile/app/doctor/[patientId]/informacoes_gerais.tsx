@@ -11,7 +11,7 @@ import {
   Alert, 
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { apiUrl, fetchWithAuth } from '../../../utils/api';
+import { api } from '../../../utils/apiClient';
 // --- COMPONENTE REUTILIZÁVEL 'TextAreaInput' ---
 type TextAreaInputProps = {
   label: string;
@@ -57,11 +57,8 @@ export default function InformacoesGeraisScreen() {
     const fetchPatientData = async () => {
       try {
         setLoading(true);
-        const response = await fetchWithAuth(apiUrl(`/api/pregnants/${patientId}`));
-        if (!response.ok) {
-          throw new Error('Não foi possível buscar os dados da paciente');
-        }
-        const data = await response.json();
+        const response = await api.get(`/pregnants/${patientId}`);
+        const data = response.data;
         
         // Carregando dados da Tabela 'pregnants'
         setEdemas(data.info_gerais_edemas || '');
@@ -72,7 +69,6 @@ export default function InformacoesGeraisScreen() {
         setPsicossocial(data.info_gerais_psicossocial || '');
 
       } catch (error) {
-        console.error(error);
         Alert.alert('Erro', error instanceof Error ? error.message : 'Erro de rede');
       } finally {
         setLoading(false);
@@ -88,29 +84,20 @@ export default function InformacoesGeraisScreen() {
     
     try {
       // 1. ALIMENTANDO O BD (Tabela 'pregnants')
-      const response = await fetchWithAuth(apiUrl(`/api/pregnants/${patientId}`), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          info_gerais_edemas: edemas,
-          info_gerais_sintomas: sintomas,
-          info_gerais_estado_geral_1: estadoGeral1,
-          info_gerais_estado_geral_2: estadoGeral2,
-          info_gerais_nutricional: nutricional,
-          info_gerais_psicossocial: psicossocial,
-        }),
+      await api.put(`/pregnants/${patientId}`, {
+        info_gerais_edemas: edemas,
+        info_gerais_sintomas: sintomas,
+        info_gerais_estado_geral_1: estadoGeral1,
+        info_gerais_estado_geral_2: estadoGeral2,
+        info_gerais_nutricional: nutricional,
+        info_gerais_psicossocial: psicossocial,
       });
-
-      if (!response.ok) {
-        throw new Error('Falha ao salvar os dados');
-      }
 
       // 2. NAVEGANDO 
       
       router.push(`/doctor/${patientId}/resumo`);
 
     } catch (error) {
-      console.error(error);
       Alert.alert('Erro ao Salvar', error instanceof Error ? error.message : 'Erro de rede');
     } finally {
       setIsSaving(false);

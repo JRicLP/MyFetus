@@ -1,8 +1,15 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image, ActivityIndicator, ScrollView } from 'react-native';
 import { useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { apiUrl } from '../utils/api';
+import { api } from '../utils/apiClient';
+import ConsentChecklist, { useConsentPolicy } from '../components/ConsentChecklist';
+import {
+  buildSignupConsents,
+  ConsentSelection,
+  getApiErrorInfo,
+  getMissingRequired,
+} from '../utils/consent';
 
 export default function Cadastro() {
   const [nome, setNome] = useState('');
@@ -12,6 +19,9 @@ export default function Cadastro() {
   const [confirmarSenha, setConfirmarSenha] = useState('');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{[key: string]: string}>({});
+  // E7-01.1: termos, política e consentimentos vigentes vêm da API; sem eles não é possível cadastrar.
+  const { policy, reload: carregarTermo } = useConsentPolicy('gestante');
+  const [aceites, setAceites] = useState<ConsentSelection>({});
   const router = useRouter();
 
   const validarEmail = (email: string) => {
@@ -67,6 +77,12 @@ export default function Cadastro() {
       novosErros.confirmarSenha = 'As senhas não coincidem';
     }
 
+    if (!policy) {
+      novosErros.termo = 'Não foi possível carregar os termos. Verifique sua conexão.';
+    } else if (getMissingRequired(policy, aceites).length > 0) {
+      novosErros.termo = 'Marque os aceites obrigatórios: termos de uso, política de privacidade e uso dos dados de saúde';
+    }
+
     setErrors(novosErros);
     return Object.keys(novosErros).length === 0;
   };
@@ -89,7 +105,7 @@ export default function Cadastro() {
   };
 
   const handleCadastro = async () => {
-    if (!validarFormulario()) {
+    if (!validarFormulario() || !policy) {
       return;
     }
 
@@ -104,21 +120,10 @@ export default function Cadastro() {
         email: email,
         password: senha,
         birthdate: dataFormatada,
+        consents: buildSignupConsents(policy, aceites),
       };
 
-      const response = await fetch(apiUrl('/api/users'), { 
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(dadosCadastro),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Erro ao criar conta');
-      }
+      await api.post('/users', dadosCadastro);
 
       Alert.alert(
         'Sucesso!',
@@ -131,16 +136,20 @@ export default function Cadastro() {
         ]
       );
     } catch (error) {
+      const apiError = getApiErrorInfo(error);
       let mensagemErro = 'Erro ao criar conta';
-      
-      if (error instanceof Error) {
-        if (error.message.includes('email')) {
-          mensagemErro = 'Este e-mail já está cadastrado';
-        } else if (error.message.includes('network')) {
-          mensagemErro = 'Erro de conexão. Verifique sua internet';
-        } else {
-          mensagemErro = error.message;
-        }
+
+      if (apiError.code === 'CONSENT_VERSION_OUTDATED') {
+        // Um documento mudou enquanto a pessoa preenchia: recarrega e pede novo aceite.
+        setAceites({});
+        await carregarTermo();
+        mensagemErro = 'Os termos foram atualizados. Leia a nova versão e aceite novamente.';
+      } else if (apiError.status === 409) {
+        mensagemErro = 'Este e-mail já está cadastrado';
+      } else if (apiError.message) {
+        mensagemErro = apiError.message;
+      } else if (apiError.status === null) {
+        mensagemErro = 'Erro de conexão. Verifique sua internet';
       }
 
       Alert.alert('Erro', mensagemErro);
@@ -158,6 +167,12 @@ export default function Cadastro() {
       colors={["#cce5f6", "#f8cde9"]}
       style={styles.container}
     >
+      {/* Rolagem: com o termo de consentimento o formulário não cabe em telas pequenas. */}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        style={styles.scroll}
+      >
       <View style={styles.formBox}>
         <Image
           source={require("../assets/images/fetus-heart.png")}
@@ -239,7 +254,18 @@ export default function Cadastro() {
         />
         {errors.confirmarSenha && <Text style={styles.errorText}>{errors.confirmarSenha}</Text>}
 
-        <TouchableOpacity 
+        <ConsentChecklist
+          policy={policy}
+          selection={aceites}
+          disabled={loading}
+          onToggle={(purpose) => {
+            setAceites((prev) => ({ ...prev, [purpose]: !prev[purpose] }));
+            setErrors(prev => ({...prev, termo: ''}));
+          }}
+        />
+        {errors.termo ? <Text style={styles.errorText}>{errors.termo}</Text> : null}
+
+        <TouchableOpacity
           style={[styles.loginButton, loading && styles.loginButtonDisabled]} 
           onPress={handleCadastro}
           disabled={loading}
@@ -262,6 +288,7 @@ export default function Cadastro() {
           resizeMode="contain"
         />
       </View>
+      </ScrollView>
     </LinearGradient>
   );
 }
@@ -270,9 +297,16 @@ export default function Cadastro() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scroll: {
+    width: "100%",
+  },
+  scrollContent: {
+    flexGrow: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 30,
+    paddingTop: 70,
   },
   footerContainer: {
     width: "100%",
@@ -350,5 +384,5 @@ const styles = StyleSheet.create({
   logo: {
     width: 240,
     height: 80
-  }
+  },
 });

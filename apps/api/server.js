@@ -40,6 +40,9 @@ const cors = require('cors');
 const db = require('./backend');
 const logger = require('./utils/logger');
 const { getSecurityConfig, requireHttps } = require('./config/security');
+const hardening = require('./config/apiHardening');
+const { requireCurrentConsent } = require('./middlewares/consent');
+const { createAuthLimiters } = require('./middlewares/authRateLimit');
 
 const app = express();
 const securityConfig = getSecurityConfig();
@@ -50,40 +53,27 @@ if (securityConfig.trustProxy) {
 
 app.use(requireHttps(securityConfig));
 
-const allowedOrigins = (process.env.CORS_ORIGIN || [
-  'http://localhost:8081',
-  'http://localhost:19006',
-  'http://localhost:3000',
-  'http://127.0.0.1:8081',
-  'http://127.0.0.1:19006',
-  'http://127.0.0.1:3000',
-].join(','))
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean);
+app.disable('x-powered-by');
+app.use(hardening.createSecurityHeaders());
 
-// Configuração do CORS — em produção, defina CORS_ORIGIN com os domínios permitidos.
-app.use(cors({
-  origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
+// CORS: origens explícitas; em produção CORS_ORIGIN é obrigatório (falha no boot se vazio ou '*').
+app.use(cors(hardening.createCorsOptions(hardening.getAllowedOrigins())));
 
-    return callback(new Error('Origin não permitido pelo CORS'));
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
-}));
+// Rate limit antes de interpretar o body, para barrar abuso cedo.
+app.use(hardening.createRateLimitMiddleware(createAuthLimiters()));
 
-//Middlewares para interpretar JSON e formulários
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Limites de payload explícitos
+app.use(express.json({ limit: hardening.BODY_LIMIT }));
+app.use(express.urlencoded({ extended: true, limit: hardening.BODY_LIMIT }));
 
 app.use((req, res, next) => {
   logger.request(req);
   next();
 });
+
+// Verifica consentimento vigente antes de qualquer uso autenticado da API.
+// Cadastro, login e os próprios endpoints de consentimento são exceções.
+app.use(requireCurrentConsent);
 
 //Importação das rotas
 const userRoutes = require('./routes/users');
@@ -99,9 +89,11 @@ const internalLoincRoutes = require('./routes/internalLoinc');
 const ragRoutes = require('./routes/rag');
 const growthRoutes = require('./routes/growth');
 const clinicalHistoryRoutes = require('./routes/clinicalHistory');
+const examRequestRoutes = require('./routes/examRequests');
 const { startDocumentTextExtractionWorker } = require('./workers/pdfWorker');
 const agentRoutes = require('./routes/agent');
 const auditRoutes = require('./routes/audit');
+const healthRoutes = require('./routes/health');
 
 //Prefixo /api para padronização das rotas
 app.use('/api/users', userRoutes);
@@ -119,11 +111,31 @@ app.use('/api/agent', agentRoutes);
 app.use('/api/admin/audit', auditRoutes);
 app.use('/api/growth', growthRoutes);
 app.use('/api/history', clinicalHistoryRoutes);
+app.use('/api/exam-requests', examRequestRoutes);
 
-//Rota de teste (para verificar se o backend está no ar)
+// Consentimento LGPD (E7-01.1)
+const consentRoutes = require('./routes/consents');
+app.use('/api/consents', consentRoutes);
+
+// Direitos do titular LGPD (E7-02.1)
+const privacyRoutes = require('./routes/privacy');
+app.use('/api/privacy', privacyRoutes);
+
+// Documentacao OpenAPI/Swagger (E1-09): contrato em apps/api/openapi.yaml.
+const docsRoutes = require('./routes/docs');
+app.use('/docs', docsRoutes);
+
+// Rota de readiness probe (para verificar conectividade ativa com dependências)
+app.use('/health', healthRoutes);
+
+// Rota de liveness probe (para verificar se o backend está no ar)
 app.get('/ping', (req, res) => {
   res.json({ message: 'Backend funcionando corretamente.' });
 });
+
+// Handlers finais: 404 e erros sem stack/PII
+app.use(hardening.notFoundHandler);
+app.use(hardening.createErrorHandler(logger));
 
 // Garante compatibilidade com o dashboard do médico: todo usuário com role='user'
 // precisa ter um registro correspondente na tabela `pregnants`.
@@ -139,11 +151,11 @@ async function backfillPregnantsForUsers() {
         );
     `);
     if (result?.rowCount) {
-      console.log(`🧩 Backfill: ${result.rowCount} paciente(s) adicionada(s) em pregnants.`);
+      logger.info('Backfill de gestantes concluído', { rowCount: result.rowCount });
     }
   } catch (err) {
     // Não derruba o servidor se o banco ainda não estiver pronto.
-    console.warn('⚠️ Backfill de pregnants falhou:', err?.message || err);
+    logger.warn('Falha em rotina de inicialização do schema', { code: 'BACKFILL_PREGNANTS_FAILED' });
   }
 }
 
@@ -160,7 +172,7 @@ async function ensurePregnantDocumentsReportSchema() {
         ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMP;
     `);
   } catch (err) {
-    console.warn('⚠️ ensurePregnantDocumentsReportSchema falhou:', err?.message || err);
+    logger.warn('Falha em rotina de inicialização do schema', { code: 'SCHEMA_DOCUMENTS_REPORT_FAILED' });
   }
 }
 
@@ -185,7 +197,7 @@ async function ensureDoctorWorkflowSchema() {
       );
     `);
   } catch (err) {
-    console.warn('⚠️ ensureDoctorWorkflowSchema falhou:', err?.message || err);
+    logger.warn('Falha em rotina de inicialização do schema', { code: 'SCHEMA_DOCTOR_WORKFLOW_FAILED' });
   }
 }
 
@@ -197,4 +209,5 @@ const PORT = process.env.PORT || 3000;
 //importante: use '0.0.0.0' para aceitar conexões externas dentro do container Docker
 app.listen(PORT, '0.0.0.0', () => {
   logger.startup(`🚀 Servidor rodando em http://0.0.0.0:${PORT}`);
+  startDocumentTextExtractionWorker();
 });

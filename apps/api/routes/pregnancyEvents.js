@@ -17,8 +17,12 @@
  */
 const express = require('express');
 const router = express.Router();
+const { rateLimit } = require('express-rate-limit');
+const { createClinicalLimiterOptions } = require('../middlewares/authRateLimit');
 const eventsController = require('../controllers/pregnancyEventsController');
 const { authenticateToken, requireRole } = require('../middlewares/auth');
+
+router.use(rateLimit(createClinicalLimiterOptions()));
 
 router.post(
   '/',

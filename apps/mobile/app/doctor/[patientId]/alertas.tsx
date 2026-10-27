@@ -10,8 +10,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { apiUrl } from '../../../utils/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { api } from '../../../utils/apiClient';
 
 type TrafficLevel = 'green' | 'yellow' | 'red';
 
@@ -107,7 +106,7 @@ function AlertCard({ categoryKey, alert }: { categoryKey: string; alert: AlertCa
 
 export default function AlertasScreen() {
   const router = useRouter();
-  const { patientId } = useLocalSearchParams();
+  const { patientId } = useLocalSearchParams<{ patientId: string }>();
   const [data, setData] = useState<AlertsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -117,15 +116,8 @@ export default function AlertasScreen() {
     const fetchAlerts = async () => {
       try {
         setLoading(true);
-        const token = await AsyncStorage.getItem('authToken');
-        const response = await fetch(apiUrl(`/api/pregnants/${patientId}/alerts`), {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        if (!response.ok) throw new Error('Erro ao carregar alertas');
-        const json = await response.json();
+        const response = await api.get(`/pregnants/${patientId}/alerts`);
+        const json = response.data;
         setData(json);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Erro de rede');
@@ -133,7 +125,7 @@ export default function AlertasScreen() {
         setLoading(false);
       }
     };
-    fetchAlerts();
+    void fetchAlerts();
   }, [patientId]);
 
   if (loading) {

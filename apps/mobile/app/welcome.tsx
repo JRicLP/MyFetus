@@ -9,13 +9,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   useWindowDimensions,
-  Alert,
   Modal
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { saveLastPeriod, calculateGestationWeek } from '../utils/gestationUtils';
 import { FontAwesome } from '@expo/vector-icons';
+import { useSession } from '@/contexts/SessionContext';
 
 const WEB_MAX_WIDTH = 430;
 
@@ -25,6 +25,7 @@ export default function WelcomeScreen() {
   const styles = React.useMemo(() => createStyles(width, height), [width, height]);
 
   const router = useRouter();
+  const { user } = useSession();
   const [selectedDate, setSelectedDate] = useState('');
   const [showWarning, setShowWarning] = useState(false);
   const [warningMessage, setWarningMessage] = useState('');
@@ -54,7 +55,7 @@ export default function WelcomeScreen() {
   };
 
   const handleSaveLastPeriod = async (date: string) => {
-    if (date.length === 10) {
+    if (date.length === 10 && user) {
       const [day, month, year] = date.split('/');
       const formattedDate = `${year}-${month}-${day}`;
       
@@ -69,7 +70,7 @@ export default function WelcomeScreen() {
       }
       
       // Se não houver aviso, salva e avança
-      await saveLastPeriod(date);
+      await saveLastPeriod(user.id, date);
       router.push({
         pathname: '/gestation-info',
         params: { lastMenstruation: formattedDate }
@@ -120,6 +121,7 @@ export default function WelcomeScreen() {
             
             <View style={styles.inputContainer}>
               <TextInput
+                testID="e2e-last-menstruation"
                 style={styles.dateInput}
                 placeholder="DD/MM/AAAA"
                 value={selectedDate}
@@ -129,6 +131,7 @@ export default function WelcomeScreen() {
                 placeholderTextColor="#f9a9a7"
               />
               <TouchableOpacity 
+                testID="e2e-last-menstruation-submit"
                 style={[
                   styles.submitButton,
                   selectedDate.length !== 10 && styles.submitButtonDisabled
@@ -311,4 +314,4 @@ const createStyles = (width: number, height: number) => StyleSheet.create({
     marginBottom: 20,
     fontWeight: '500',
   },
-}); 
+});

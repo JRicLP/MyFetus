@@ -142,10 +142,10 @@ const searchKnowledgeBase = async (req, res) => {
     });
   } catch (error) {
     // ... resto do código (catch)
-    console.error('Erro ao buscar knowledge base:', error.message);
+    const logger = require('../utils/logger');
+    logger.error('RAG_SEARCH_FAILED');
     return res.status(500).json({
-      error: 'Falha ao buscar no knowledge base',
-      details: error.message
+    error: 'Falha ao buscar no knowledge base'
     });
   }
 };
@@ -196,7 +196,8 @@ const askClinicalChat = async (req, res) => {
       tempo_ms: Date.now() - startTime
     });
   } catch (error) {
-    console.error('Erro ao gerar resposta do chat clínico:', error.message);
+    const logger = require('../utils/logger');
+    logger.error('RAG_CHAT_FAILED');
     audit(req, {
       action: 'RAG_CHAT_QUERIED',
       resource: 'rag',
@@ -204,8 +205,7 @@ const askClinicalChat = async (req, res) => {
       detail: { reason: error.message },
     });
     return res.status(500).json({
-      error: 'Falha ao gerar resposta do chat clínico',
-      details: error.message
+    error: 'Falha ao gerar resposta do chat clínico'
     });
   }
 };
@@ -266,7 +266,8 @@ const askClinicalAgentsChat = async (req, res) => {
       tempo_ms: Date.now() - startTime,
     });
   } catch (error) {
-    console.error('Erro ao gerar resposta multiagente:', error.message);
+    const logger = require('../utils/logger');
+    logger.error('RAG_AGENTS_CHAT_FAILED');
     audit(req, {
       action: 'RAG_CHAT_QUERIED',
       resource: 'rag',
@@ -274,9 +275,8 @@ const askClinicalAgentsChat = async (req, res) => {
       detail: { mode: 'agents', reason: error.message },
     });
     return res.status(500).json({
-      error: 'Falha ao gerar resposta multiagente',
-      details: error.message,
-    });
+  error: 'Falha ao gerar resposta multiagente',
+  });
   }
 };
 
@@ -294,11 +294,11 @@ const getRAGStats = async (req, res) => {
       ambiente: process.env.NODE_ENV || 'test'
     });
   } catch (error) {
-    console.error('Erro ao obter stats:', error.message);
+    const logger = require('../utils/logger');
+    logger.error('RAG_STATS_FAILED');
     return res.status(500).json({
-      error: 'Falha ao obter estatísticas',
-      details: error.message
-    });
+  error: 'Falha ao obter estatísticas'
+  });
   }
 };
 

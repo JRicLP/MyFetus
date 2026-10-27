@@ -5,6 +5,7 @@ const {
   ensureCanAccessPregnancy,
 } = require('../utils/clinicalAccess');
 const logger = require('../utils/logger');
+const { sendInternalError } = require('../utils/httpErrors');
 
 const UPDATE_FIELDS = ['glicemia', 'frequencia_cardiaca', 'altura_uterina'];
 
@@ -76,7 +77,7 @@ const createPregnancy = async (req, res) => {
       cryptoService.decryptRecord(result.rows[0], 'pregnancies')
     );
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    return sendInternalError(res);
   }
 };
 
@@ -106,7 +107,7 @@ const getPregnancies = async (req, res) => {
       (row) => cryptoService.decryptRecord(row, 'pregnancies')
     ));
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    return sendInternalError(res);
   }
 };
 
@@ -145,7 +146,7 @@ const updatePregnancy = async (req, res) => {
       details: error.message,
       pregnancyId: id,
     });
-    return res.status(500).json({ error: error.message });
+    return sendInternalError(res);
   }
 };
 

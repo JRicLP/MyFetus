@@ -11,7 +11,8 @@ import {
   Alert, 
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { apiUrl, fetchWithAuth } from '../../../utils/api';
+import { api } from '../../../utils/apiClient';
+import { parseInputInt } from '../../../utils/clinicalInput';
 
 // --- COMPONENTE REUTILIZÁVEL 'ToggleButton' ---
 type ToggleButtonProps = {
@@ -79,20 +80,14 @@ export default function GestacaoAtualScreen() {
 
   // Helper
   const intToString = (val: number) => val ? String(val) : "0";
-  const parseInputInt = (input: string) => {
-    if (input === '') return 0;
-    return parseInt(input, 10);
-  }
-
   // --- useEffect para LER os dados ---
   useEffect(() => {
     if (!patientId) return;
     const fetchPatientData = async () => {
       try {
         setLoading(true);
-        const response = await fetchWithAuth(apiUrl(`/api/pregnants/${patientId}`));
-        if (!response.ok) { throw new Error('Erro ao buscar dados'); }
-        const data = await response.json();
+        const response = await api.get(`/pregnants/${patientId}`);
+        const data = response.data;
         
         // Carregando dados 
         setFuma(data.gestacao_atual_fumante || false);
@@ -123,7 +118,6 @@ export default function GestacaoAtualScreen() {
         setExantema(data.exantema_rash || false); 
 
       } catch (error) {
-        console.error(error);
         Alert.alert('Erro', error instanceof Error ? error.message : 'Erro de rede');
       } finally {
         setLoading(false);
@@ -139,7 +133,7 @@ export default function GestacaoAtualScreen() {
     setIsSaving(true);
     
     try {
-      const response = await fetchWithAuth(apiUrl(`/api/pregnants/${patientId}`), {
+      await api.put(`/pregnants/${patientId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -172,11 +166,9 @@ export default function GestacaoAtualScreen() {
         }),
       });
 
-      if (!response.ok) { throw new Error('Falha ao salvar os dados'); }
       router.push(`/doctor/${patientId}/vacina`);
 
     } catch (error) {
-      console.error(error);
       Alert.alert('Erro ao Salvar', error instanceof Error ? error.message : 'Erro de rede');
     } finally {
       setIsSaving(false);

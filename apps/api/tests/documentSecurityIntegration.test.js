@@ -13,6 +13,7 @@ process.env.DISABLE_DOCUMENT_EXTRACTION_QUEUE = 'true';
 const client = require('../backend');
 const fileCryptoService = require('../services/fileCryptoService');
 const { createUser } = require('../controllers/userController');
+const { getRequiredPurposes } = require('../config/consentPolicy');
 const {
   deleteDocument,
   downloadDocument,
@@ -60,6 +61,7 @@ async function createTestUser(email) {
       email,
       password: 'StrongPass123!',
       birthdate: '1991-04-15',
+      consents: getRequiredPurposes('gestante'),
     },
   }, response);
   assert.strictEqual(response.statusCode, 201);

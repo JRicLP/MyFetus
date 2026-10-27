@@ -1,0 +1,75 @@
+appId: com.myfetus.app
+
+---
+
+# E1-16.5: smoke das jornadas mobile sem a revisão médica da #61.
+# Usa somente a fixture sintética criada pelo seed do workflow.
+- launchApp:
+    clearState: true
+
+# Médico: login, pedido de exame e logout.
+- tapOn:
+    id: e2e-login-email
+- inputText: ${E2E_DOCTOR_EMAIL}
+- tapOn:
+    id: e2e-login-password
+- inputText: ${E2E_PASSWORD}
+- tapOn:
+    id: e2e-login-submit
+- assertVisible: "Qual paciente você quer ver?"
+- openLink: myfetus://doctor/${E2E_PREGNANT_ID}/historico_exames
+- assertVisible: "Solicitar exame"
+- tapOn:
+    id: e2e-doctor-exam-name
+- inputText: ${E2E_EXAM_NAME}
+- tapOn:
+    id: e2e-doctor-exam-instructions
+- inputText: "Usar somente o PDF sintetico fornecido pelo teste."
+- tapOn:
+    id: e2e-create-exam-request
+- assertVisible: "Solicitação enviada para a gestante."
+- tapOn: "OK"
+- openLink: myfetus://doctor/dashboard
+- tapOn:
+    id: e2e-doctor-sign-out
+- assertVisible: "E-mail"
+
+# Gestante: login, criação local da gestação e upload do exame solicitado.
+- tapOn:
+    id: e2e-login-email
+- inputText: ${E2E_PATIENT_EMAIL}
+- tapOn:
+    id: e2e-login-password
+- inputText: ${E2E_PASSWORD}
+- tapOn:
+    id: e2e-login-submit
+- assertVisible: "Já teve outras gestações?"
+- tapOn:
+    id: e2e-previous-pregnancy-no
+- tapOn:
+    id: e2e-previous-pregnancy-continue
+- assertVisible: "Qual foi a data da sua última menstruação?"
+- tapOn:
+    id: e2e-last-menstruation
+- inputText: "01082026"
+- tapOn:
+    id: e2e-last-menstruation-submit
+- assertVisible: "Parabéns!"
+- tapOn:
+    id: e2e-gestation-continue
+- assertVisible: "Meu Bebê"
+- tapOn: "Exames"
+- assertVisible: "Solicitações do médico"
+- tapOn:
+    text: ${E2E_EXAM_NAME}
+- tapOn:
+    id: e2e-upload-exam
+- tapOn: "synthetic-lab-report.pdf"
+- assertVisible: "Exame enviado. Aguarde o relatório do médico."
+- tapOn: "OK"
+
+# O fluxo termina no logout da gestante; revisão e devolutiva ficam na #61.
+- tapOn: "Início"
+- tapOn:
+    id: e2e-patient-sign-out
+- assertVisible: "E-mail"

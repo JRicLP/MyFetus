@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
@@ -10,10 +9,12 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome } from '@expo/vector-icons';
-// import { calculateGestationWeek } from '../utils/gestationWeekCalculator';
-import { getChecklistForWeek, ChecklistItem, checklistData } from '../data/checklistData';
-import { getLastPeriod, calculateGestationWeek, getBabySize, getBabyDescription } from '../../utils/gestationUtils';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ChecklistItem, checklistData } from '../data/checklistData';
+import { getLastPeriod, calculateGestationWeek } from '../../utils/gestationUtils';
+import { useSession } from '@/contexts/SessionContext';
+import { getScopedItem, setScopedItem } from '@/utils/scopedStorage';
+import { AccessibleText as Text } from '../../components/AccessibleText';
+import { ACCESSIBLE_COLORS } from '../../theme/accessibility';
 
 const WEB_MAX_WIDTH = 430;
 
@@ -24,97 +25,87 @@ const TRIMESTER_RANGES = {
 };
 
 const CHECKLIST_STATE_KEY = '@myFetus:checklistState';
+const CHECKLIST_SCOPED_KEY = 'checklistState';
+
+function getTrimesterItems(trimester: number, completionState: Record<string, boolean>): ChecklistItem[] {
+  const range = TRIMESTER_RANGES[trimester as keyof typeof TRIMESTER_RANGES];
+  return checklistData
+    .filter((checklist) => {
+      const [start, end] = checklist.weekRange.split('-').map(Number);
+      return start >= range.start && end <= range.end;
+    })
+    .flatMap((checklist) => checklist.items.map((item) => ({
+      ...item,
+      completed: completionState[item.id] || false,
+    })));
+}
 
 export default function ChecklistScreen() {
   const { width: windowWidth, height } = useWindowDimensions();
   const width = Platform.OS === 'web' ? Math.min(windowWidth, WEB_MAX_WIDTH) : windowWidth;
   const styles = React.useMemo(() => createStyles(width, height), [width, height]);
+  const { user } = useSession();
 
-  const [currentWeek, setCurrentWeek] = useState(0);
   const [currentTrimester, setCurrentTrimester] = useState(1);
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
   const [savedState, setSavedState] = useState<Record<string, boolean>>({});
 
   // Carrega o estado salvo do checklist
-  const loadSavedState = async () => {
+  const loadSavedState = useCallback(async () => {
     try {
-      const savedState = await AsyncStorage.getItem(CHECKLIST_STATE_KEY);
+      if (!user) return {};
+      const savedState = await getScopedItem(user.id, CHECKLIST_SCOPED_KEY, CHECKLIST_STATE_KEY);
       if (savedState) {
         const parsedState = JSON.parse(savedState);
         setSavedState(parsedState);
         return parsedState;
       }
-    } catch (error) {
-      console.error('Erro ao carregar estado do checklist:', error);
+    } catch {
+      // erro tratado na UI; sem log para não expor dados
     }
     return {};
-  };
+  }, [user]);
 
   // Salva o estado atual do checklist
-  const saveState = async (itemId: string, completed: boolean) => {
-    try {
-      const newState = {
-        ...savedState,
+  const saveState = useCallback((itemId: string, completed: boolean) => {
+    setSavedState((currentState) => {
+      const nextState = {
+        ...currentState,
         [itemId]: completed
       };
-      setSavedState(newState);
-      await AsyncStorage.setItem(CHECKLIST_STATE_KEY, JSON.stringify(newState));
-    } catch (error) {
-      console.error('Erro ao salvar estado do checklist:', error);
-    }
-  };
+      if (user) {
+        void setScopedItem(user.id, CHECKLIST_SCOPED_KEY, JSON.stringify(nextState)).catch(
+          () => undefined
+        );
+      }
+
+      return nextState;
+    });
+  }, [user]);
 
   useEffect(() => {
     const loadGestationData = async () => {
-      const lastPeriod = await getLastPeriod();
+      if (!user) return;
+      const lastPeriod = await getLastPeriod(user.id);
       if (lastPeriod) {
-        console.log('Checklist - Data última menstruação:', lastPeriod);
         const result = calculateGestationWeek(lastPeriod);
-        console.log('Checklist - Semana calculada:', result.weeks);
-        setCurrentWeek(result.weeks);
-        
-        // Determina o trimestre atual baseado na semana
         const trimester = result.weeks <= 13 ? 1 : result.weeks <= 26 ? 2 : 3;
         setCurrentTrimester(trimester);
-        
-        // Carrega o estado salvo primeiro
-        await loadSavedState();
-        
-        // Carrega os itens do trimestre atual
-        await loadTrimesterItems(trimester);
+
+        const completionState = await loadSavedState();
+        setChecklistItems(getTrimesterItems(trimester, completionState));
       }
     };
 
-    loadGestationData();
-  }, []);
+    void loadGestationData();
+  }, [user, loadSavedState]);
 
-  const loadTrimesterItems = async (trimester: number) => {
-    const range = TRIMESTER_RANGES[trimester as keyof typeof TRIMESTER_RANGES];
-    const items: ChecklistItem[] = [];
-    
-    // Filtra os checklists que estão dentro do trimestre atual
-    const trimesterChecklists = checklistData.filter(checklist => {
-      const [start, end] = checklist.weekRange.split("-").map(Number);
-      return start >= range.start && end <= range.end;
-    });
-    
-    // Adiciona todos os itens dos checklists do trimestre
-    trimesterChecklists.forEach(checklist => {
-      items.push(...checklist.items.map(item => ({
-        ...item,
-        completed: savedState[item.id] || false
-      })));
-    });
-    
-    setChecklistItems(items);
-  };
-
-  const changeTrimester = async (trimester: number) => {
+  const changeTrimester = (trimester: number) => {
     setCurrentTrimester(trimester);
-    await loadTrimesterItems(trimester);
+    setChecklistItems(getTrimesterItems(trimester, savedState));
   };
 
-  const toggleItem = async (id: string) => {
+  const toggleItem = (id: string) => {
     const newItems = checklistItems.map(item => {
       if (item.id === id) {
         const newCompleted = !item.completed;
@@ -144,18 +135,27 @@ export default function ChecklistScreen() {
             <TouchableOpacity
               style={[styles.trimesterButton, currentTrimester === 1 && styles.activeTrimester]}
               onPress={() => changeTrimester(1)}
+              accessibilityRole="tab"
+              accessibilityLabel="Primeiro trimestre"
+              accessibilityState={{ selected: currentTrimester === 1 }}
             >
               <Text style={[styles.trimesterButtonText, currentTrimester === 1 && styles.activeTrimesterText]}>1º</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.trimesterButton, currentTrimester === 2 && styles.activeTrimester]}
               onPress={() => changeTrimester(2)}
+              accessibilityRole="tab"
+              accessibilityLabel="Segundo trimestre"
+              accessibilityState={{ selected: currentTrimester === 2 }}
             >
               <Text style={[styles.trimesterButtonText, currentTrimester === 2 && styles.activeTrimesterText]}>2º</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.trimesterButton, currentTrimester === 3 && styles.activeTrimester]}
               onPress={() => changeTrimester(3)}
+              accessibilityRole="tab"
+              accessibilityLabel="Terceiro trimestre"
+              accessibilityState={{ selected: currentTrimester === 3 }}
             >
               <Text style={[styles.trimesterButtonText, currentTrimester === 3 && styles.activeTrimesterText]}>3º</Text>
             </TouchableOpacity>
@@ -168,6 +168,9 @@ export default function ChecklistScreen() {
               key={item.id}
               style={styles.itemContainer}
               onPress={() => toggleItem(item.id)}
+              accessibilityRole="checkbox"
+              accessibilityLabel={`${item.title}${item.description ? `. ${item.description}` : ''}`}
+              accessibilityState={{ checked: item.completed }}
             >
               <View style={[styles.checkbox, item.completed && styles.checkboxCompleted]}>
                 {item.completed && (
@@ -202,7 +205,13 @@ export default function ChecklistScreen() {
           <Text style={styles.progressText}>
             {completedCount} de {checklistItems.length} tarefas concluídas
           </Text>
-          <View style={styles.progressBar}>
+          <View
+            style={styles.progressBar}
+            accessible
+            accessibilityRole="progressbar"
+            accessibilityLabel="Progresso do checklist"
+            accessibilityValue={{ min: 0, max: checklistItems.length, now: completedCount }}
+          >
             <View
               style={[
                 styles.progress,
@@ -234,7 +243,7 @@ const createStyles = (width: number, height: number) => StyleSheet.create({
   title: {
     fontSize: width * 0.05,
     fontWeight: 'bold',
-    color: '#20B2AA',
+    color: ACCESSIBLE_COLORS.primary,
     marginBottom: 10,
   },
   trimesterNavigation: {
@@ -249,14 +258,14 @@ const createStyles = (width: number, height: number) => StyleSheet.create({
     borderRadius: 20,
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#20B2AA',
+    borderColor: ACCESSIBLE_COLORS.primary,
   },
   activeTrimester: {
-    backgroundColor: '#20B2AA',
+    backgroundColor: ACCESSIBLE_COLORS.primary,
   },
   trimesterButtonText: {
     fontSize: width * 0.04,
-    color: '#20B2AA',
+    color: ACCESSIBLE_COLORS.primary,
     fontWeight: '600',
   },
   activeTrimesterText: {
@@ -290,13 +299,13 @@ const createStyles = (width: number, height: number) => StyleSheet.create({
     height: 18,
     borderRadius: 9,
     borderWidth: 2,
-    borderColor: '#20B2AA',
+    borderColor: ACCESSIBLE_COLORS.primary,
     marginRight: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkboxCompleted: {
-    backgroundColor: '#20B2AA',
+    backgroundColor: ACCESSIBLE_COLORS.primary,
   },
   itemContent: {
     flex: 1,
@@ -309,12 +318,12 @@ const createStyles = (width: number, height: number) => StyleSheet.create({
   },
   itemDescription: {
     fontSize: width * 0.03,
-    color: '#666',
+    color: ACCESSIBLE_COLORS.muted,
     lineHeight: 18,
   },
   completedText: {
     textDecorationLine: 'line-through',
-    color: '#999',
+    color: ACCESSIBLE_COLORS.muted,
   },
   progressContainer: {
     padding: 15,
@@ -324,7 +333,7 @@ const createStyles = (width: number, height: number) => StyleSheet.create({
   },
   progressText: {
     fontSize: width * 0.035,
-    color: '#666',
+    color: ACCESSIBLE_COLORS.muted,
     marginBottom: 8,
     textAlign: 'center',
   },
@@ -336,7 +345,7 @@ const createStyles = (width: number, height: number) => StyleSheet.create({
   },
   progress: {
     height: '100%',
-    backgroundColor: '#20B2AA',
+    backgroundColor: ACCESSIBLE_COLORS.primary,
     borderRadius: 4,
   },
 });

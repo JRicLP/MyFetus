@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   Platform,
@@ -10,16 +9,22 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSession } from '@/contexts/SessionContext';
+import { getScopedItem, setScopedItem } from '@/utils/scopedStorage';
+import { localDateKey } from '@/utils/gestationDate';
+import { AccessibleText as Text } from '../../components/AccessibleText';
+import { ACCESSIBLE_COLORS } from '../../theme/accessibility';
+import {
+  getWaterAmountForDate,
+  parseWaterHistory,
+  updateWaterEntry,
+  WaterEntry,
+} from '@/utils/waterTracking';
 
 const WEB_MAX_WIDTH = 430;
 
 const WATER_HISTORY_KEY = '@myFetus:waterHistory';
-
-type WaterEntry = {
-  date: string;
-  amount: number;
-};
+const WATER_HISTORY_SCOPED_KEY = 'waterHistory';
 
 // Constantes para conversão
 const COPO_ML = 200; // 1 copo = 200ml
@@ -30,52 +35,43 @@ export default function WaterTrackingScreen() {
   const { width: windowWidth, height } = useWindowDimensions();
   const width = Platform.OS === 'web' ? Math.min(windowWidth, WEB_MAX_WIDTH) : windowWidth;
   const styles = React.useMemo(() => createStyles(width, height), [width, height]);
+  const { user } = useSession();
 
   const [waterAmount, setWaterAmount] = useState(0);
   const [waterHistory, setWaterHistory] = useState<WaterEntry[]>([]);
   const dailyGoal = 2000; // 2 litros por dia
 
   useEffect(() => {
-    loadWaterHistory();
-  }, []);
+    let active = true;
+    if (!user) return;
 
-  const loadWaterHistory = async () => {
-    try {
-      const history = await AsyncStorage.getItem(WATER_HISTORY_KEY);
-      if (history) {
-        setWaterHistory(JSON.parse(history));
-      }
-    } catch (error) {
-      console.error('Erro ao carregar histórico de água:', error);
-    }
-  };
+    getScopedItem(user.id, WATER_HISTORY_SCOPED_KEY, WATER_HISTORY_KEY)
+      .then(history => {
+        if (!active) return;
+        const parsed = parseWaterHistory(history);
+        setWaterHistory(parsed);
+        setWaterAmount(getWaterAmountForDate(parsed, localDateKey()));
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [user]);
 
   const saveWaterHistory = async (newHistory: WaterEntry[]) => {
     try {
-      await AsyncStorage.setItem(WATER_HISTORY_KEY, JSON.stringify(newHistory));
-    } catch (error) {
-      console.error('Erro ao salvar histórico de água:', error);
+      if (user) {
+        await setScopedItem(user.id, WATER_HISTORY_SCOPED_KEY, JSON.stringify(newHistory));
+      }
+    } catch {
+      // erro tratado na UI; sem log para não expor dados
     }
   };
 
   const addWater = (amount: number) => {
     const newAmount = waterAmount + amount;
+    const newHistory = updateWaterEntry(waterHistory, localDateKey(), newAmount);
     setWaterAmount(newAmount);
-
-    const today = new Date().toISOString().split('T')[0];
-    const existingEntry = waterHistory.find(entry => entry.date === today);
-
-    let newHistory;
-    if (existingEntry) {
-      newHistory = waterHistory.map(entry =>
-        entry.date === today ? { ...entry, amount: newAmount } : entry
-      );
-    } else {
-      newHistory = [...waterHistory, { date: today, amount: newAmount }];
-    }
-
     setWaterHistory(newHistory);
-    saveWaterHistory(newHistory);
+    void saveWaterHistory(newHistory);
   };
 
   const formatDate = (dateString: string) => {
@@ -96,9 +92,9 @@ export default function WaterTrackingScreen() {
 
   const getProgressColor = (amount: number) => {
     const percentage = (amount / dailyGoal) * 100;
-    if (percentage < 50) return '#FF6B6B';
-    if (percentage < 80) return '#FFD93D';
-    return '#4CAF50';
+    if (percentage < 50) return ACCESSIBLE_COLORS.danger;
+    if (percentage < 80) return ACCESSIBLE_COLORS.warning;
+    return ACCESSIBLE_COLORS.success;
   };
 
   return (
@@ -114,7 +110,13 @@ export default function WaterTrackingScreen() {
           </View>
 
           <View style={styles.progressContainer}>
-            <View style={styles.progressBar}>
+            <View
+              style={styles.progressBar}
+              accessible
+              accessibilityRole="progressbar"
+              accessibilityLabel="Progresso da meta diária de água"
+              accessibilityValue={{ min: 0, max: dailyGoal, now: waterAmount }}
+            >
               <View 
                 style={[
                   styles.progressFill, 
@@ -134,8 +136,11 @@ export default function WaterTrackingScreen() {
             <TouchableOpacity 
               style={styles.waterButton}
               onPress={() => addWater(COPO_ML)}
+              accessibilityRole="button"
+              accessibilityLabel={`Adicionar ${COPO_ML} mililitros de água`}
+              accessibilityHint="Atualiza o total consumido hoje"
             >
-              <FontAwesome name="glass" size={24} color="#20B2AA" />
+              <FontAwesome name="glass" size={24} color={ACCESSIBLE_COLORS.primary} />
               <Text style={styles.buttonText}>1 Copo</Text>
               <Text style={styles.buttonSubtext}>{COPO_ML}ml</Text>
             </TouchableOpacity>
@@ -143,8 +148,11 @@ export default function WaterTrackingScreen() {
             <TouchableOpacity 
               style={styles.waterButton}
               onPress={() => addWater(GARRAFA_ML)}
+              accessibilityRole="button"
+              accessibilityLabel={`Adicionar ${GARRAFA_ML} mililitros de água`}
+              accessibilityHint="Atualiza o total consumido hoje"
             >
-              <FontAwesome name="tint" size={24} color="#20B2AA" />
+              <FontAwesome name="tint" size={24} color={ACCESSIBLE_COLORS.primary} />
               <Text style={styles.buttonText}>1 Garrafa</Text>
               <Text style={styles.buttonSubtext}>{GARRAFA_ML}ml</Text>
             </TouchableOpacity>
@@ -152,8 +160,11 @@ export default function WaterTrackingScreen() {
             <TouchableOpacity 
               style={styles.waterButton}
               onPress={() => addWater(GARRAFAO_ML)}
+              accessibilityRole="button"
+              accessibilityLabel={`Adicionar ${GARRAFAO_ML} mililitros de água`}
+              accessibilityHint="Atualiza o total consumido hoje"
             >
-              <FontAwesome name="tint" size={24} color="#20B2AA" />
+              <FontAwesome name="tint" size={24} color={ACCESSIBLE_COLORS.primary} />
               <Text style={styles.buttonText}>1 Garrafão</Text>
               <Text style={styles.buttonSubtext}>{GARRAFAO_ML}ml</Text>
             </TouchableOpacity>
@@ -213,11 +224,11 @@ const createStyles = (width: number, height: number) => StyleSheet.create({
   title: {
     fontSize: width * 0.07,
     fontWeight: 'bold',
-    color: '#20B2AA',
+    color: ACCESSIBLE_COLORS.primary,
   },
   subtitle: {
     fontSize: width * 0.045,
-    color: '#666',
+    color: ACCESSIBLE_COLORS.muted,
     marginTop: 5,
   },
   progressContainer: {
@@ -238,7 +249,7 @@ const createStyles = (width: number, height: number) => StyleSheet.create({
   progressText: {
     marginTop: 10,
     fontSize: width * 0.04,
-    color: '#666',
+    color: ACCESSIBLE_COLORS.muted,
   },
   buttonsContainer: {
     flexDirection: 'row',
@@ -263,13 +274,13 @@ const createStyles = (width: number, height: number) => StyleSheet.create({
   },
   buttonText: {
     marginTop: 5,
-    color: '#20B2AA',
+    color: ACCESSIBLE_COLORS.primary,
     fontSize: width * 0.035,
     fontWeight: '500',
   },
   buttonSubtext: {
     fontSize: width * 0.03,
-    color: '#666',
+    color: ACCESSIBLE_COLORS.muted,
     marginTop: 2,
   },
   historyContainer: {
@@ -289,7 +300,7 @@ const createStyles = (width: number, height: number) => StyleSheet.create({
   historyTitle: {
     fontSize: width * 0.05,
     fontWeight: 'bold',
-    color: '#20B2AA',
+    color: ACCESSIBLE_COLORS.primary,
     marginBottom: 15,
   },
   historyItem: {
@@ -297,7 +308,7 @@ const createStyles = (width: number, height: number) => StyleSheet.create({
   },
   historyDate: {
     fontSize: width * 0.035,
-    color: '#666',
+    color: ACCESSIBLE_COLORS.muted,
     marginBottom: 5,
   },
   historyProgress: {
@@ -313,12 +324,12 @@ const createStyles = (width: number, height: number) => StyleSheet.create({
   },
   historyAmount: {
     fontSize: width * 0.035,
-    color: '#666',
+    color: ACCESSIBLE_COLORS.muted,
     textAlign: 'right',
   },
   noHistoryText: {
     fontSize: width * 0.035,
-    color: '#666',
+    color: ACCESSIBLE_COLORS.muted,
     textAlign: 'center',
     fontStyle: 'italic',
   },

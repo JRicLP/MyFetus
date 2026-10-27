@@ -1,9 +1,24 @@
 {
-  "version": 1,
+  "version": 2,
   "locale": "pt-BR",
   "description": "Synthetic obstetric document schema for MyFetus PDF extraction tests.",
   "documents_per_type": 10,
   "scanned_documents_per_type": 5,
+  "laboratories": [
+    "Laboratorio Aurora",
+    "Instituto Vida Plena",
+    "Centro Materno Ser"
+  ],
+  "layouts": [
+    "cabecalho_classico",
+    "tabela_compacta",
+    "blocos_clinicos"
+  ],
+  "difficulties": ["facil", "moderada", "alta"],
+  "success_thresholds": {
+    "pdfjs_token_overlap": 0.9,
+    "ocr_token_overlap": 0.7
+  },
   "output": {
     "native": "tests/fixtures/pdfs/native",
     "scanned": "tests/fixtures/pdfs/scanned"

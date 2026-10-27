@@ -1,16 +1,21 @@
 import { Tabs } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ACCESSIBLE_COLORS } from '../../theme/accessibility';
 
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
+  const baseTabBarHeight = 65;
+
   return (
     <Tabs
       screenOptions={{
         tabBarStyle: {
           backgroundColor: '#fff',
           borderTopWidth: 0,
-          height: 65,
-          paddingBottom: 10,
+          height: baseTabBarHeight + insets.bottom,
+          paddingBottom: insets.bottom + 6,
           paddingTop: 5,
           elevation: 0,
           shadowOpacity: 0,
@@ -21,9 +26,10 @@ export default function TabsLayout() {
             style={{ flex: 1 }}
           />
         ),
-        tabBarActiveTintColor: '#20B2AA',
-        tabBarInactiveTintColor: '#f9a9a7',
+        tabBarActiveTintColor: ACCESSIBLE_COLORS.primary,
+        tabBarInactiveTintColor: ACCESSIBLE_COLORS.secondary,
         headerShown: false,
+        tabBarHideOnKeyboard: true,
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '500',
@@ -35,6 +41,7 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Início',
+          tabBarAccessibilityLabel: 'Início, página principal',
           tabBarIcon: ({ color }) => (
             <FontAwesome name="home" size={24} color={color} />
           ),
@@ -44,6 +51,7 @@ export default function TabsLayout() {
         name="water-tracking"
         options={{
           title: 'Água',
+          tabBarAccessibilityLabel: 'Água, controle de hidratação',
           tabBarIcon: ({ color }) => (
             <FontAwesome name="tint" size={24} color={color} />
           ),
@@ -53,6 +61,7 @@ export default function TabsLayout() {
         name="checklist"
         options={{
           title: 'Checklist',
+          tabBarAccessibilityLabel: 'Checklist da gestação',
           tabBarIcon: ({ color }) => (
             <FontAwesome name="list" size={24} color={color} />
           ),
@@ -63,6 +72,7 @@ export default function TabsLayout() {
         name="exames"
         options={{
           title: 'Exames',
+          tabBarAccessibilityLabel: 'Exames e solicitações médicas',
           tabBarIcon: ({ color }) => (
             <FontAwesome name="file-text" size={24} color={color} />
           ),
@@ -73,6 +83,7 @@ export default function TabsLayout() {
         name="chat"
         options={{
           title: 'Chat',
+          tabBarAccessibilityLabel: 'Chat com assistente médico',
           tabBarIcon: ({ color }) => (
             <FontAwesome name="comments" size={24} color={color} />
           ),

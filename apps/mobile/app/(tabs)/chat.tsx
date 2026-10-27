@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TextInput,
@@ -14,6 +13,8 @@ import {
 import { FontAwesome } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { askClinicalChat } from '../../utils/chatApi';
+import { AccessibleText as Text } from '../../components/AccessibleText';
+import { ACCESSIBLE_COLORS } from '../../theme/accessibility';
 
 interface Message {
   id: string;
@@ -63,7 +64,7 @@ export default function ChatScreen() {
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, botMessage]);
-    } catch (error) {
+    } catch {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         text: 'Não consegui consultar o assistente agora. Tente novamente em alguns instantes.',
@@ -136,7 +137,7 @@ export default function ChatScreen() {
           ))}
           {loading && (
             <View style={styles.loadingWrapper}>
-              <ActivityIndicator size="small" color="#20B2AA" />
+              <ActivityIndicator size="small" color={ACCESSIBLE_COLORS.primary} />
             </View>
           )}
         </ScrollView>
@@ -146,12 +147,15 @@ export default function ChatScreen() {
           <TextInput
             style={styles.input}
             placeholder="Digite sua pergunta..."
-            placeholderTextColor="#999"
+            placeholderTextColor={ACCESSIBLE_COLORS.muted}
             value={inputText}
             onChangeText={setInputText}
             multiline
             maxLength={500}
             editable={!loading}
+            accessibilityLabel="Pergunta para o assistente médico"
+            accessibilityHint="Digite uma pergunta sobre sua jornada de gravidez"
+            accessibilityState={{ disabled: loading }}
           />
           <TouchableOpacity
             style={[
@@ -160,6 +164,12 @@ export default function ChatScreen() {
             ]}
             onPress={handleSendMessage}
             disabled={loading || !inputText.trim()}
+            accessibilityRole="button"
+            accessibilityLabel="Enviar pergunta"
+            accessibilityState={{
+              disabled: loading || !inputText.trim(),
+              busy: loading,
+            }}
           >
             <FontAwesome
               name="send"
@@ -222,7 +232,7 @@ const createStyles = (width: number) =>
       borderRadius: 16,
     },
     userMessage: {
-      backgroundColor: '#20B2AA',
+      backgroundColor: ACCESSIBLE_COLORS.primary,
     },
     botMessage: {
       backgroundColor: '#fff',
@@ -267,7 +277,7 @@ const createStyles = (width: number) =>
       borderColor: '#e0e0e0',
     },
     sendButton: {
-      backgroundColor: '#20B2AA',
+      backgroundColor: ACCESSIBLE_COLORS.primary,
       width: 40,
       height: 40,
       borderRadius: 20,

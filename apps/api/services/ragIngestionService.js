@@ -10,9 +10,15 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 
-const { createChunks, slugify } = require('./chunkingService');
+const { createChunks } = require('./chunkingService');
 const { generateEmbedding } = require('./embeddingService');
 const { upsertVectors } = require('./vectorStoreService');
+const {
+  assertIngestionAllowed,
+  buildSourceMetadata,
+  evaluateGuidelines,
+  loadManifest,
+} = require('./ragManifestGate');
 
 const GUIDELINES_DIR = path.join(__dirname, '..', 'data', 'guidelines');
 const PINECONE_NAMESPACE = process.env.PINECONE_NAMESPACE || 'guidelines';
@@ -39,76 +45,6 @@ function loadPdfTextExtractor() {
 
 const { extractDocumentText } = loadPdfTextExtractor();
 
-function getDocumentInfo(fileName) {
-  const lowerFileName = fileName.toLowerCase();
-
-  if (lowerFileName.includes('febrasgo')) {
-    return {
-      source: 'FEBRASGO - Predição e prevenção da pré-eclâmpsia',
-      documentId: 'febrasgo-predicao-prevencao-pre-eclampsia-2023',
-      language: 'pt-BR',
-      documentType: 'guideline',
-      section: 'Pré-eclâmpsia',
-    };
-  }
-
-  if (lowerFileName.includes('acog')) {
-    return {
-      source: 'ACOG - Gestational Hypertension and Preeclampsia',
-      documentId: 'acog-gestational-hypertension-preeclampsia-2020',
-      language: 'en',
-      documentType: 'guideline',
-      section: 'Hypertension and preeclampsia',
-    };
-  }
-
-  if (
-    lowerFileName.includes('gestacao_alto_risco') ||
-    lowerFileName.includes('alto_risco')
-  ) {
-    return {
-      source: 'Ministério da Saúde - Manual de Gestação de Alto Risco',
-      documentId: 'manual-gestacao-alto-risco-ms-2022',
-      language: 'pt-BR',
-      documentType: 'manual',
-      section: 'Gestação de alto risco',
-    };
-  }
-
-  if (
-    lowerFileName.includes('caderno32') ||
-    lowerFileName.includes('baixo_risco')
-  ) {
-    return {
-      source: 'Ministério da Saúde - Atenção ao Pré-Natal de Baixo Risco',
-      documentId: 'caderno32-prenatal-baixo-risco-ms-2012',
-      language: 'pt-BR',
-      documentType: 'manual',
-      section: 'Pré-natal de baixo risco',
-    };
-  }
-
-  if (lowerFileName.includes('somanz')) {
-    return {
-      source: 'SOMANZ - Hypertension in Pregnancy Guideline 2023',
-      documentId: 'somanz-hypertension-pregnancy-2023',
-      language: 'en',
-      documentType: 'guideline',
-      section: 'Hypertension in pregnancy',
-    };
-  }
-
-  const fallbackId = slugify(fileName.replace(/\.pdf$/i, ''));
-
-  return {
-    source: fileName,
-    documentId: fallbackId,
-    language: 'unknown',
-    documentType: 'guideline',
-    section: 'Geral',
-  };
-}
-
 function listPdfFiles() {
   if (!fs.existsSync(GUIDELINES_DIR)) {
     throw new Error(`Pasta não encontrada: ${GUIDELINES_DIR}`);
@@ -133,84 +69,91 @@ async function extractTextFromPdf(filePath, fileName) {
   return result.text;
 }
 
-function buildPineconeRecord(chunk, embedding, documentInfo) {
+function buildPineconeRecord(chunk, embedding, sourceMetadata) {
   return {
     id: chunk.id,
     values: embedding,
     metadata: {
       ...chunk.metadata,
+      ...sourceMetadata,
       text: chunk.text,
-      language: documentInfo.language,
     },
   };
 }
 
-async function ingestSingleDocument(fileName) {
-  const filePath = path.join(GUIDELINES_DIR, fileName);
-  const documentInfo = getDocumentInfo(fileName);
+async function ingestSingleDocument({ fileName, filePath, source }, manifestVersion) {
+  const sourceMetadata = buildSourceMetadata(source, manifestVersion);
 
-  console.log(`\nIniciando documento: ${fileName}`);
-  console.log(`Fonte: ${documentInfo.source}`);
+  const logger = require('../utils/logger');
+  logger.info('Ingestão RAG: documento iniciado');
+  logger.info('Ingestão RAG: fonte');
 
   const text = await extractTextFromPdf(filePath, fileName);
 
   const chunks = createChunks(text, {
-    source: documentInfo.source,
-    documentId: documentInfo.documentId,
-    section: documentInfo.section,
-    documentType: documentInfo.documentType,
+    source: source.title,
+    documentId: source.documentId,
+    section: (source.topics && source.topics[0]) || 'Geral',
+    documentType: source.documentType,
   });
 
-  console.log(`Chunks gerados: ${chunks.length}`);
+  logger.info('Ingestão RAG: chunks gerados');
 
   const records = [];
 
   for (let index = 0; index < chunks.length; index += 1) {
     const chunk = chunks[index];
-
-    console.log(`Gerando embedding ${index + 1}/${chunks.length}...`);
+    const logger = require('../utils/logger');
+    logger.info('Ingestão RAG: gerando embedding');
 
     const embedding = await generateEmbedding(chunk.text, 'passage');
-    const record = buildPineconeRecord(chunk, embedding, documentInfo);
+    const record = buildPineconeRecord(chunk, embedding, sourceMetadata);
 
     records.push(record);
   }
 
-  console.log('Enviando vetores para o Pinecone...');
+  
+  logger.info('Ingestão RAG: enviando vetores');
 
   const result = await upsertVectors(records, PINECONE_NAMESPACE);
 
-  console.log(`Documento indexado: ${fileName}`);
-  console.log(`Vetores enviados: ${result.upsertedCount}`);
+  logger.info('Ingestão RAG: documento indexado');
+  logger.info('Ingestão RAG: vetores enviados');
 
   return {
     fileName,
-    source: documentInfo.source,
-    documentId: documentInfo.documentId,
+    source: source.title,
+    documentId: source.documentId,
+    sha256: source.sha256,
     chunks: chunks.length,
     vectors: result.upsertedCount,
   };
 }
 
 async function ingestGuidelines() {
-  const pdfFiles = listPdfFiles();
+  // O gate roda antes de qualquer extração ou embedding: fonte não aprovada
+  // ou com hash diferente do manifesto interrompe a ingestão inteira.
+  const manifest = loadManifest();
+  const gate = assertIngestionAllowed(
+    evaluateGuidelines({ guidelinesDir: GUIDELINES_DIR, manifest })
+  );
 
-  if (pdfFiles.length === 0) {
-    throw new Error(`Nenhum PDF encontrado em ${GUIDELINES_DIR}`);
-  }
-
-  console.log(`PDFs encontrados: ${pdfFiles.length}`);
-  console.log(pdfFiles);
+  const logger = require('../utils/logger');
+  logger.info('Ingestão RAG: PDFs liberados pelo manifesto', {
+    fileCount: gate.approved.length,
+    manifestVersion: gate.manifestVersion,
+  });
 
   const results = [];
 
-  for (const fileName of pdfFiles) {
-    const result = await ingestSingleDocument(fileName);
+  for (const document of gate.approved) {
+    const result = await ingestSingleDocument(document, gate.manifestVersion);
     results.push(result);
   }
 
   return {
     namespace: PINECONE_NAMESPACE,
+    manifestVersion: gate.manifestVersion,
     documents: results.length,
     results,
   };
@@ -220,5 +163,4 @@ module.exports = {
   ingestGuidelines,
   ingestSingleDocument,
   listPdfFiles,
-  getDocumentInfo,
 };

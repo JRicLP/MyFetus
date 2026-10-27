@@ -27,9 +27,8 @@ const mapSingleTerm = async (req, res) => {
     });
   } catch (error) {
     return res.status(500).json({
-      error: 'Falha ao mapear termo clínico',
-      details: error.message,
-    });
+  error: 'Falha ao mapear termo clínico',
+  });
   }
 };
 
@@ -56,9 +55,8 @@ const mapTextBlock = async (req, res) => {
     });
   } catch (error) {
     return res.status(500).json({
-      error: 'Falha ao mapear bloco de texto clínico',
-      details: error.message,
-    });
+  error: 'Falha ao mapear bloco de texto clínico',
+  });
   }
 };
 

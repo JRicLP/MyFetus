@@ -1,5 +1,14 @@
 -- SPRINT 6 - Historico de biometria fetal e peso materno
 
+CREATE OR REPLACE FUNCTION update_updated_at_and_version()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = CURRENT_TIMESTAMP;
+  NEW.version = OLD.version + 1;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 CREATE TABLE IF NOT EXISTS fetal_biometry_history (
   id SERIAL PRIMARY KEY,
   pregnancy_id INTEGER NOT NULL REFERENCES pregnancies(id) ON DELETE CASCADE,

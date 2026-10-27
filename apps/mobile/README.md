@@ -18,7 +18,7 @@ O sistema está sendo desenvolvido para proporcionar uma interface intuitiva e e
 
 ### 🛠 Tecnologias Utilizadas
 
-* **Framework:** React Native (via Expo SDK 53)
+* **Framework:** React Native (via Expo SDK 56)
 * **Roteamento:** Expo Router (navegação baseada em arquivos)
 * **Linguagem:** TypeScript / JavaScript
 * **Estilização:** StyleSheet (Nativo)
@@ -91,9 +91,35 @@ Ao selecionar uma paciente, o médico entra num fluxo de formulários sequenciai
 * Exibe alertas de risco consolidados.
 * Mostra o histórico completo de exames e vacinas.
 
+### 5. Sobre o MyFetus (`sobre.tsx`, E7-09)
+* Disponível **com e sem login** (aprovado pela gestão): a rota fica fora dos `Stack.Protected` em `app/_layout.tsx`. Acesso pelo link "Sobre o MyFetus" no login, pelo botão "Sobre" na home da gestante e pelo ícone de informação no dashboard do médico.
+* **Textos aprovados** (19/10/2026), em `constants/aboutContent.ts`: limitações e avisos, orientação de segurança (192 — SAMU) e "Equipe MyFetus — ciclo 2026.2". Uma lista de sinais de alarme só pode ser publicada após revisão clínica.
+* **Versão:** a versão instalada, lida de `Constants.expoConfig` (`utils/appVersion.ts`); com `appVersionSource: "local"` no `eas.json`, coincide com o artefato. O ciclo "2026.2" aparece separado da versão.
+* **Ambiente e data do build** (variáveis opcionais do build EAS):
+  * `EXPO_PUBLIC_APP_ENVIRONMENT`: qualquer valor diferente de `production` (ou ausente) exibe "Ambiente de testes — uso acadêmico".
+  * `EXPO_PUBLIC_BUILD_DATE`: data ISO da compilação (ex.: `2026-10-19`), exibida como "Data da compilação". Sem ela, a data não aparece.
+* **Pendências para fechar a issue:** contato oficial do projeto (canal em definição) e os documentos de termos de uso e política de privacidade aprovados na E7-01, com versão e data. Até lá, a tela mostra o aviso "Em definição" (`ABOUT_IS_DRAFT`).
+* A tela não exibe nomes de integrantes, instituição, URL da API, IDs de build ou segredos. Os testes em `tests/about.test.ts` verificam isso.
+
 ---
 
 ## ⚙️ Como Rodar
+
+### Build Android via EAS
+
+Para gerar um APK instalável em aparelhos de teste, use o perfil `preview`:
+
+```bash
+npm run build:android:preview
+```
+
+O perfil está definido em [`eas.json`](eas.json) e usa distribuição interna
+com `buildType: apk`. O perfil `preview` já aponta para a API de homologação
+HTTPS do Cloud Run. Para gerar um APK com outra API, substitua
+`EXPO_PUBLIC_API_URL` no perfil ou configure a variável no ambiente EAS antes
+do build. Um APK instalado sem Expo Go não consegue acessar a API por
+`localhost`. Consulte o [guia completo](../../docs/eas-android-build.md) para
+configuração, acompanhamento e critérios de aceite.
 
 ### Pré-requisitos
 * Docker Desktop instalado e rodando.
@@ -127,7 +153,29 @@ Acesse o projeto através do localhost (web) ou escaneie o QR Code com o Expo Go
 ## ⚠️ Observações Importantes
 
 ### Ambiente de Execução
-O aplicativo está configurado para se comunicar com o Backend via `localhost:3000`.
-* **Recomendado:** Rodar em **Emulador Android/iOS** ou **Navegador Web** no mesmo computador onde o Docker está rodando.
-* **Dispositivos Físicos:** Para rodar no smartphone (via Wi-Fi), é necessário alterar manualmente as chamadas de API no código (`fetch`) para o IP da sua máquina local.
+Todas as chamadas passam por `utils/api.ts`, que lê `EXPO_PUBLIC_API_URL` e
+remove a necessidade de editar telas individualmente:
 
+* **APK EAS `preview`:** usa a API de homologação configurada em `eas.json`.
+* **Expo Go/desenvolvimento local:** sem variável, usa o host do Metro na rede
+  local e a porta `3000`; no emulador Android usa `10.0.2.2` como fallback.
+* **Web:** sem variável, usa `http://localhost:3000`.
+* **Outro provedor:** defina `EXPO_PUBLIC_API_URL` com a URL HTTPS do provedor
+  e gere um novo build. O código das telas não precisa ser alterado.
+
+Para fixar a API local durante um teste, copie [`.env.example`](.env.example)
+para `.env` e preencha `EXPO_PUBLIC_API_URL` com o endereço que o aparelho
+consegue alcançar. O backend deve estar disponível na porta `3000`:
+
+```bash
+cp .env.example .env
+# exemplo para um celular na mesma rede Wi-Fi:
+# EXPO_PUBLIC_API_URL=http://192.168.0.10:3000
+npm start -- --clear
+```
+
+O arquivo `.env` é ignorado pelo Git. Depois de alterar a variável, reinicie o
+Metro para que o Expo recompile o bundle.
+
+Nunca coloque tokens ou outras credenciais nessa variável; ela é incorporada ao
+bundle do aplicativo e contém somente a URL pública da API.

@@ -4,24 +4,17 @@ import {
   Alert,
   FlatList,
   Platform,
-  SafeAreaView,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
-import * as WebBrowser from 'expo-web-browser';
-import { apiUrl, fetchWithAuth } from '../../utils/api';
-
-type StoredUser = {
-  id: number;
-  name: string;
-  email: string;
-  role: string;
-  pregnant_id?: number | null;
-};
+import { api } from '../../utils/apiClient';
+import { useSession } from '@/contexts/SessionContext';
+import { downloadDocument } from '@/utils/downloadDocument';
+import { AccessibleText as Text } from '../../components/AccessibleText';
+import { ACCESSIBLE_COLORS } from '../../theme/accessibility';
 
 type PregnantDocument = {
   id: number;
@@ -37,26 +30,23 @@ type PregnantDocument = {
   download_url?: string | null;
 };
 
+type ExamRequest = {
+  id: number;
+  exam_name: string;
+  instructions: string | null;
+  status: 'pending' | 'submitted' | 'reviewed' | 'cancelled' | string;
+  requested_at: string;
+};
+
 export default function ExamesTabScreen() {
+  const { user } = useSession();
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [user, setUser] = useState<StoredUser | null>(null);
   const [docs, setDocs] = useState<PregnantDocument[]>([]);
+  const [examRequests, setExamRequests] = useState<ExamRequest[]>([]);
+  const [selectedExamRequestId, setSelectedExamRequestId] = useState<number | null>(null);
 
   const pregnantId = user?.pregnant_id ?? null;
-
-  const loadUser = useCallback(async () => {
-    try {
-      const raw = await AsyncStorage.getItem('userData');
-      if (!raw) {
-        setUser(null);
-        return;
-      }
-      setUser(JSON.parse(raw));
-    } catch {
-      setUser(null);
-    }
-  }, []);
 
   const fetchDocs = useCallback(async () => {
     if (!pregnantId) {
@@ -64,26 +54,21 @@ export default function ExamesTabScreen() {
       return;
     }
 
-    const res = await fetchWithAuth(apiUrl(`/api/documents/documents?pregnant_id=${pregnantId}`));
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(data?.error || 'Não foi possível carregar os exames');
-    }
+    const response = await api.get(`/documents/?pregnant_id=${pregnantId}`);
+    const data = response.data;
 
     setDocs(Array.isArray(data) ? data : []);
   }, [pregnantId]);
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        await loadUser();
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [loadUser]);
+  const fetchExamRequests = useCallback(async () => {
+    if (!pregnantId) {
+      setExamRequests([]);
+      return;
+    }
+    const res = await api.get(`/exam-requests/pregnant/${pregnantId}`);
+    const data = res.data;
+    setExamRequests(Array.isArray(data) ? data : []);
+  }, [pregnantId]);
 
   useEffect(() => {
     if (!user) return;
@@ -91,14 +76,16 @@ export default function ExamesTabScreen() {
     (async () => {
       setLoading(true);
       try {
-        await fetchDocs();
+        const results = await Promise.allSettled([fetchDocs(), fetchExamRequests()]);
+        const failure = results.find((result) => result.status === 'rejected');
+        if (failure?.status === 'rejected') throw failure.reason;
       } catch (err) {
         Alert.alert('Erro', err instanceof Error ? err.message : 'Erro de rede');
       } finally {
         setLoading(false);
       }
     })();
-  }, [user, fetchDocs]);
+  }, [user, fetchDocs, fetchExamRequests]);
 
   const handlePickAndUpload = useCallback(async () => {
     if (!pregnantId) {
@@ -110,12 +97,16 @@ export default function ExamesTabScreen() {
     }
 
     if (uploading) return;
+    if (!selectedExamRequestId) {
+      Alert.alert('Selecione uma solicitação', 'Escolha o pedido do médico antes de enviar o arquivo.');
+      return;
+    }
 
     try {
       setUploading(true);
 
       const picked = await DocumentPicker.getDocumentAsync({
-        type: '*/*',
+        type: ['application/pdf', 'image/*'],
         copyToCacheDirectory: true,
         multiple: false,
       });
@@ -132,6 +123,7 @@ export default function ExamesTabScreen() {
 
       const form = new FormData();
       form.append('pregnant_id', String(pregnantId));
+      form.append('exam_request_id', String(selectedExamRequestId));
       form.append('document_name', name);
       form.append('document_type', type);
 
@@ -164,29 +156,18 @@ export default function ExamesTabScreen() {
         );
       }
 
-      const res = await fetchWithAuth(apiUrl('/api/documents/documents'), {
-        method: 'POST',
-        body: form,
+      const response = await api.post('/documents/', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
-
-      const raw = await res.text();
-      let data: any = {};
-      try {
-        data = raw ? JSON.parse(raw) : {};
-      } catch {
-        data = {};
-      }
-
-      if (!res.ok) {
-        throw new Error(data?.error || data?.message || raw || 'Falha ao enviar exame');
-      }
-
+      const data = response.data;
       const created: PregnantDocument | undefined = data?.document;
       if (created) {
         setDocs((prev) => [created, ...prev]);
       } else {
         await fetchDocs();
       }
+      await fetchExamRequests();
+      setSelectedExamRequestId(null);
 
       Alert.alert('Sucesso', 'Exame enviado. Aguarde o relatório do médico.');
     } catch (err) {
@@ -194,14 +175,13 @@ export default function ExamesTabScreen() {
     } finally {
       setUploading(false);
     }
-  }, [pregnantId, uploading, fetchDocs]);
+  }, [pregnantId, uploading, selectedExamRequestId, fetchDocs, fetchExamRequests]);
 
-  const openDownload = useCallback(async (docId: number) => {
-    const url = apiUrl(`/api/documents/documents/${docId}/download`);
+  const openDownload = useCallback(async (doc: PregnantDocument) => {
     try {
-      await WebBrowser.openBrowserAsync(url);
-    } catch {
-      Alert.alert('Erro', 'Não foi possível abrir o exame');
+      await downloadDocument(doc.id, doc.document_name, doc.document_type);
+    } catch (error) {
+      Alert.alert('Erro', error instanceof Error ? error.message : 'Não foi possível abrir o exame');
     }
   }, []);
 
@@ -220,11 +200,20 @@ export default function ExamesTabScreen() {
   }, [pregnantId]);
 
   if (loading) {
-    return <ActivityIndicator size="large" color="#20B2AA" style={{ marginTop: 40 }} />;
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <ActivityIndicator
+          accessibilityLabel="Carregando exames"
+          size="large"
+          color={ACCESSIBLE_COLORS.primary}
+          style={{ marginTop: 40 }}
+        />
+      </SafeAreaView>
+    );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <FlatList
         data={docs}
         keyExtractor={(item) => String(item.id)}
@@ -234,12 +223,49 @@ export default function ExamesTabScreen() {
             <Text style={styles.title}>Exames</Text>
             <Text style={styles.subtitle}>Envie um exame e aguarde o relatório do médico.</Text>
 
+            <View style={styles.requestsBox}>
+              <Text style={styles.requestsTitle}>Solicitações do médico</Text>
+              {examRequests.length === 0 ? (
+                <Text style={styles.emptyRequestText}>Nenhuma solicitação pendente.</Text>
+              ) : examRequests.map((request) => (
+                <TouchableOpacity
+                  key={request.id}
+                  testID={`e2e-exam-request-${request.id}`}
+                  style={[styles.requestCard, selectedExamRequestId === request.id && styles.requestCardSelected]}
+                  onPress={() => request.status === 'pending' && setSelectedExamRequestId(request.id)}
+                  disabled={request.status !== 'pending'}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${request.exam_name}, status ${request.status === 'pending' ? 'pendente' : request.status === 'cancelled' ? 'cancelada' : request.status === 'reviewed' ? 'revisada' : 'enviada'}`}
+                  accessibilityHint={request.status === 'pending' ? 'Seleciona esta solicitação para enviar o resultado' : 'Solicitação indisponível para envio'}
+                  accessibilityState={{
+                    disabled: request.status !== 'pending',
+                    selected: selectedExamRequestId === request.id,
+                  }}
+                >
+                  <View style={styles.rowBetween}>
+                    <Text style={styles.requestName}>{request.exam_name}</Text>
+                    <Text style={styles.requestStatus}>
+                      {request.status === 'pending' ? 'Pendente' : request.status === 'cancelled' ? 'Cancelada' : request.status === 'reviewed' ? 'Revisada' : 'Enviada'}
+                    </Text>
+                  </View>
+                  {!!request.instructions && <Text style={styles.requestInstructions}>{request.instructions}</Text>}
+                  {request.status === 'pending' && <Text style={styles.requestHint}>Envie o resultado usando o botão abaixo.</Text>}
+                </TouchableOpacity>
+              ))}
+              {!!selectedExamRequestId && <Text style={styles.selectedRequestText}>Solicitação selecionada para envio.</Text>}
+            </View>
+
             <TouchableOpacity
+              testID="e2e-upload-exam"
               style={[styles.primaryButton, uploading && styles.primaryButtonDisabled]}
               onPress={handlePickAndUpload}
               disabled={uploading}
+              accessibilityRole="button"
+              accessibilityLabel={uploading ? 'Enviando exame' : 'Enviar exame solicitado'}
+              accessibilityHint="Abre o seletor de arquivos para enviar o resultado da solicitação selecionada"
+              accessibilityState={{ disabled: uploading, busy: uploading }}
             >
-              <Text style={styles.primaryButtonText}>{uploading ? 'Enviando...' : 'Enviar exame'}</Text>
+              <Text style={styles.primaryButtonText}>{uploading ? 'Enviando...' : 'Enviar exame solicitado'}</Text>
             </TouchableOpacity>
           </View>
         }
@@ -263,7 +289,13 @@ export default function ExamesTabScreen() {
               </Text>
             </View>
 
-            <TouchableOpacity style={styles.secondaryButton} onPress={() => openDownload(item.id)}>
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={() => openDownload(item)}
+              accessibilityRole="button"
+              accessibilityLabel={`Abrir exame ${item.document_name}`}
+              accessibilityHint="Abre o arquivo do exame"
+            >
               <Text style={styles.secondaryButtonText}>Abrir exame</Text>
             </TouchableOpacity>
           </View>
@@ -291,16 +323,69 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#20B2AA',
+    color: ACCESSIBLE_COLORS.primary,
   },
   subtitle: {
     marginTop: 6,
     fontSize: 14,
-    color: '#666',
+    color: ACCESSIBLE_COLORS.muted,
+  },
+  requestsBox: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: '#F2FBFA',
+  },
+  requestsTitle: {
+    color: '#176B66',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  emptyRequestText: {
+    color: '#667085',
+    fontSize: 13,
+  },
+  requestCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 8,
+  },
+  requestCardSelected: {
+    borderWidth: 2,
+    borderColor: ACCESSIBLE_COLORS.primary,
+  },
+  requestName: {
+    color: '#202020',
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  requestStatus: {
+    color: '#176B66',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  requestInstructions: {
+    color: '#475467',
+    fontSize: 13,
+    marginTop: 6,
+  },
+  requestHint: {
+    color: '#667085',
+    fontSize: 12,
+    marginTop: 6,
+  },
+  selectedRequestText: {
+    color: '#176B66',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 8,
   },
   primaryButton: {
     marginTop: 14,
-    backgroundColor: '#20B2AA',
+    backgroundColor: ACCESSIBLE_COLORS.primary,
     paddingVertical: 12,
     borderRadius: 24,
     alignItems: 'center',
@@ -315,7 +400,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     textAlign: 'center',
-    color: '#666',
+    color: ACCESSIBLE_COLORS.muted,
     marginTop: 24,
   },
   card: {
@@ -366,13 +451,13 @@ const styles = StyleSheet.create({
   secondaryButton: {
     marginTop: 12,
     borderWidth: 1,
-    borderColor: '#20B2AA',
+    borderColor: ACCESSIBLE_COLORS.primary,
     paddingVertical: 10,
     borderRadius: 24,
     alignItems: 'center',
   },
   secondaryButtonText: {
-    color: '#20B2AA',
+    color: ACCESSIBLE_COLORS.primary,
     fontWeight: '700',
   },
 });

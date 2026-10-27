@@ -18,6 +18,16 @@ export default function DoctorLayout() {
         }}
       />
 
+      <Stack.Screen
+        name="aguardando-aprovacao"
+        options={{ title: 'Aprovação do cadastro', headerBackVisible: false }}
+      />
+
+      <Stack.Screen
+        name="aprovacao-medicos"
+        options={{ title: 'Aprovação de médicos' }}
+      />
+
       <Stack.Screen name="vincular-paciente" options={{ title: 'Vincular Paciente' }} />
 
       {/* 3. Opções para as telas do Prontuário */}

@@ -6,6 +6,8 @@ const { extractDocumentText } = require('../apps/api/services/pdfTextExtractor')
 const ROOT_DIR = path.resolve(__dirname, '..');
 const NATIVE_DIR = path.join(ROOT_DIR, 'tests', 'fixtures', 'pdfs', 'native');
 const SCANNED_DIR = path.join(ROOT_DIR, 'tests', 'fixtures', 'pdfs', 'scanned');
+const EXPECTED_NATIVE_CASES = 50;
+const MIN_SCANNED_CASES = 10;
 
 function tokenize(value) {
   return String(value || '')
@@ -46,7 +48,10 @@ function loadCases(dir) {
 }
 
 beforeAll(async () => {
-  if (!fs.existsSync(NATIVE_DIR) || loadCases(NATIVE_DIR).length < 50) {
+  const nativeCases = loadCases(NATIVE_DIR);
+  const hasMetadata = nativeCases[0]?.truth?.laboratory && nativeCases[0]?.truth?.layout;
+
+  if (!fs.existsSync(NATIVE_DIR) || nativeCases.length < EXPECTED_NATIVE_CASES || !hasMetadata) {
     await generateDataset();
   }
 }, 60000);
@@ -54,7 +59,11 @@ beforeAll(async () => {
 describe('pdfTextExtractor synthetic native dataset', () => {
   test('extracts native PDFs with at least 90 percent token overlap', async () => {
     const cases = loadCases(NATIVE_DIR);
-    expect(cases).toHaveLength(50);
+    expect(cases).toHaveLength(EXPECTED_NATIVE_CASES);
+    expect(new Set(cases.map(({ truth }) => truth.laboratory)).size).toBeGreaterThanOrEqual(3);
+    expect(new Set(cases.map(({ truth }) => truth.layout)).size).toBeGreaterThanOrEqual(3);
+    expect(cases.every(({ truth }) => truth.source_kind === 'native_pdf')).toBe(true);
+    expect(cases.every(({ truth }) => truth.expected_method === 'pdfjs')).toBe(true);
 
     const failures = [];
 
@@ -86,6 +95,10 @@ describe('pdfTextExtractor synthetic scanned dataset', () => {
       console.warn('Skipping scanned PDF assertions. Run npm run generate:dataset:ocr to create OCR fixtures.');
       return;
     }
+
+    expect(cases.length).toBeGreaterThanOrEqual(MIN_SCANNED_CASES);
+    expect(cases.every(({ truth }) => truth.source_kind === 'synthetic_photo')).toBe(true);
+    expect(cases.every(({ truth }) => truth.expected_method === 'ocr')).toBe(true);
 
     const failures = [];
 

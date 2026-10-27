@@ -8,6 +8,17 @@ const NATIVE_DIR = path.join(ROOT_DIR, 'tests', 'fixtures', 'pdfs', 'native');
 const SCANNED_DIR = path.join(ROOT_DIR, 'tests', 'fixtures', 'pdfs', 'scanned');
 const DOCUMENTS_PER_TYPE = 10;
 const SCANNED_PER_TYPE = 5;
+const LABORATORIES = [
+  'Laboratorio Aurora',
+  'Instituto Vida Plena',
+  'Centro Materno Ser',
+];
+const LAYOUTS = [
+  'cabecalho_classico',
+  'tabela_compacta',
+  'blocos_clinicos',
+];
+const DIFFICULTIES = ['facil', 'moderada', 'alta'];
 
 function createRng(seed) {
   let state = seed >>> 0;
@@ -163,12 +174,36 @@ function recordToLines(record, index) {
     observacoes: 'Observacoes',
   };
 
+  const identifier = `Identificador: ${record.document_type}_${String(index + 1).padStart(2, '0')}`;
+  const fieldLines = Object.entries(record.fields)
+    .map(([key, value]) => `${labels[key]}: ${value}`);
+
+  const headers = {
+    cabecalho_classico: [
+      'MyFetus - documento sintetico',
+      titleByType[record.document_type],
+      `Laboratorio: ${record.laboratory}`,
+      identifier,
+    ],
+    tabela_compacta: [
+      'MyFetus - documento sintetico',
+      `Laboratorio: ${record.laboratory}`,
+      titleByType[record.document_type],
+      identifier,
+    ],
+    blocos_clinicos: [
+      titleByType[record.document_type],
+      `Laboratorio: ${record.laboratory}`,
+      'MyFetus - documento sintetico',
+      identifier,
+    ],
+  };
+
   return [
-    'MyFetus - documento sintetico',
-    titleByType[record.document_type],
-    `Identificador: ${record.document_type}_${String(index + 1).padStart(2, '0')}`,
+    ...(headers[record.layout] || headers.cabecalho_classico),
+    `Dificuldade: ${record.difficulty}`,
     '',
-    ...Object.entries(record.fields).map(([key, value]) => `${labels[key]}: ${value}`),
+    ...fieldLines,
     '',
     'Dados ficticios gerados exclusivamente para testes automatizados.',
   ];
@@ -282,7 +317,13 @@ async function generateDataset({ withOcr = false } = {}) {
   for (const [typeIndex, type] of types.entries()) {
     for (let index = 0; index < DOCUMENTS_PER_TYPE; index += 1) {
       const rng = createRng((typeIndex + 1) * 1000 + index + 7);
-      const record = makeRecord(type, index, rng);
+      const record = {
+        ...makeRecord(type, index, rng),
+        laboratory: LABORATORIES[(typeIndex + index) % LABORATORIES.length],
+        layout: LAYOUTS[(typeIndex * 2 + index) % LAYOUTS.length],
+        difficulty: DIFFICULTIES[Math.min(Math.floor(index / 4), DIFFICULTIES.length - 1)],
+        source_kind: 'native_pdf',
+      };
       const baseName = `${type}_${String(index + 1).padStart(2, '0')}`;
       const pdfPath = path.join(NATIVE_DIR, `${baseName}.pdf`);
       const truthPath = path.join(NATIVE_DIR, `${baseName}.ground_truth.json`);
@@ -293,6 +334,7 @@ async function generateDataset({ withOcr = false } = {}) {
         ...record,
         file_name: `${baseName}.pdf`,
         method: 'pdfjs',
+        expected_method: 'pdfjs',
         text_tokens: lines.filter(Boolean),
       }, null, 2)}\n`);
 
@@ -306,8 +348,10 @@ async function generateDataset({ withOcr = false } = {}) {
         await writeScannedPdf(lines, scannedPath, createRng((typeIndex + 1) * 5000 + index + 11));
         await fs.writeFile(scannedTruthPath, `${JSON.stringify({
           ...record,
+          source_kind: 'synthetic_photo',
           file_name: `${scannedBaseName}.pdf`,
           method: 'ocr',
+          expected_method: 'ocr',
           text_tokens: lines.filter(Boolean),
         }, null, 2)}\n`);
       }

@@ -10,6 +10,7 @@ process.env.PG_PORT = '5434';
 
 const client = require('../backend');
 const { createUser } = require('../controllers/userController');
+const { getRequiredPurposes } = require('../config/consentPolicy');
 const {
   getPregnantById,
   updatePregnant,
@@ -51,6 +52,7 @@ async function run() {
         email,
         password: 'StrongPass123!',
         birthdate: '1994-03-12',
+        consents: getRequiredPurposes('gestante'),
       },
     }, createdUser);
     assert.strictEqual(createdUser.statusCode, 201);

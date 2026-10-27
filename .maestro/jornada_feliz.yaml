@@ -1,0 +1,69 @@
+appId: host.exp.exponent
+
+---
+
+# E1-16.5: Smoke test da Jornada Feliz no Mobile (Expo Go)
+# Cenário:
+# 1. Login com credenciais da gestante de teste
+# 2. Onboarding gestacional com cálculo de DUM (se primeiro acesso da paciente)
+# 3. Validação da tela inicial (Meu Bebê)
+# 4. Navegação pelas abas principais (Água, Checklist, Exames)
+# 5. Retorno à tela inicial e Logout seguro
+# 6. Validação do retorno à tela de login
+
+- launchApp:
+    clearState: false
+
+# 1. Login da Gestante
+- tapOn:
+    id: e2e-login-email
+- eraseText
+- inputText: "teste@teste.com"
+- tapOn:
+    id: e2e-login-password
+- eraseText
+- inputText: "testeteste"
+- tapOn:
+    id: e2e-login-submit
+
+# 2. Onboarding / Cadastro da Gestação (executado se a gestante ainda não tiver DUM)
+- runFlow:
+    when:
+      visible: "Já teve outras gestações?"
+    commands:
+      - tapOn:
+          id: e2e-previous-pregnancy-no
+      - tapOn:
+          id: e2e-previous-pregnancy-continue
+      - assertVisible: "Qual foi a data da sua última menstruação?"
+      - tapOn:
+          id: e2e-last-menstruation
+      - inputText: "01082026"
+      - tapOn:
+          id: e2e-last-menstruation-submit
+      - assertVisible: "Parabéns!"
+      - tapOn:
+          id: e2e-gestation-continue
+
+# 3. Verificação da Home da Gestante
+- assertVisible: "Meu Bebê"
+
+# 4. Navegação pelas Abas Principais
+- tapOn: "Água"
+- assertVisible: "Controle de Água"
+
+- tapOn: "Checklist"
+- assertVisible: ".*Checklist.*"
+
+- tapOn: "Exames"
+- assertVisible: ".*Solicitações do médico.*"
+
+# 5. Retorno à Home e Logout
+- tapOn: "Início"
+- assertVisible: "Meu Bebê"
+- tapOn:
+    id: e2e-patient-sign-out
+
+# 6. Validação de Sessão Encerrada
+- assertVisible:
+    id: e2e-login-submit

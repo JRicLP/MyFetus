@@ -147,13 +147,36 @@ function createFileCryptoService(options = {}) {
     return targetPath;
   }
 
+  function getBufferVersion(buffer) {
+    if (!isEncryptedBuffer(buffer)) return null;
+    return buffer.readUInt32BE(MAGIC.length);
+  }
+
+  async function reencryptFile(filePath, context) {
+    const decrypted = await readDecryptedFile(filePath, context);
+    const encrypted = encryptBuffer(decrypted, context);
+    const targetDir = path.dirname(filePath);
+    await fs.mkdir(targetDir, { recursive: true });
+    const temporaryPath = `${filePath}.${crypto.randomUUID()}.tmp`;
+    try {
+      await fs.writeFile(temporaryPath, encrypted, { flag: 'wx', mode: 0o600 });
+      await fs.rename(temporaryPath, filePath);
+    } catch (error) {
+      await fs.rm(temporaryPath, { force: true });
+      throw error;
+    }
+    return filePath;
+  }
+
   return Object.freeze({
     currentVersion,
     decryptBuffer,
     encryptBuffer,
     encryptFile,
+    getBufferVersion,
     isEncryptedBuffer,
     readDecryptedFile,
+    reencryptFile,
   });
 }
 
@@ -175,8 +198,14 @@ module.exports = {
   encryptFile(...args) {
     return getDefaultService().encryptFile(...args);
   },
+  getBufferVersion(...args) {
+    return getDefaultService().getBufferVersion(...args);
+  },
   isEncryptedBuffer,
   readDecryptedFile(...args) {
     return getDefaultService().readDecryptedFile(...args);
+  },
+  reencryptFile(...args) {
+    return getDefaultService().reencryptFile(...args);
   },
 };

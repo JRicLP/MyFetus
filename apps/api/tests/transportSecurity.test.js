@@ -51,11 +51,15 @@ async function testHttpsMiddleware() {
 
 async function testRateLimit() {
   const app = express();
-  const { loginLimiter } = createAuthLimiters({
+  const { loginLimiter, clinicalLimiter } = createAuthLimiters({
     windowMs: 60000,
     loginMax: 2,
+    clinicalMax: 2,
   });
   app.post('/login', loginLimiter, (req, res) => {
+    res.status(401).json({ error: 'invalid' });
+  });
+  app.post('/clinical', clinicalLimiter, (req, res) => {
     res.status(401).json({ error: 'invalid' });
   });
 
@@ -65,14 +69,16 @@ async function testRateLimit() {
 
   try {
     const { port } = server.address();
-    const statuses = [];
-    for (let index = 0; index < 3; index += 1) {
-      const response = await fetch(`http://127.0.0.1:${port}/login`, {
-        method: 'POST',
-      });
-      statuses.push(response.status);
+    for (const path of ['/login', '/clinical']) {
+      const statuses = [];
+      for (let index = 0; index < 3; index += 1) {
+        const response = await fetch(`http://127.0.0.1:${port}${path}`, {
+          method: 'POST',
+        });
+        statuses.push(response.status);
+      }
+      assert.deepStrictEqual(statuses, [401, 401, 429]);
     }
-    assert.deepStrictEqual(statuses, [401, 401, 429]);
   } finally {
     await new Promise((resolve, reject) => {
       server.close((error) => error ? reject(error) : resolve());

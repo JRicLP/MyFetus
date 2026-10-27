@@ -1,19 +1,24 @@
 import React, { useState } from "react";
 import {
   View,
-  Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
   Image,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from "react-native";
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router'; 
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { apiUrl } from '../utils/api';
-
+import { api } from '../utils/apiClient';
+import { useSession } from '@/contexts/SessionContext';
+import { parseSessionUser } from '@/types/session';
+import { getLastPeriod } from '../utils/gestationUtils';
+import { AccessibleText as Text } from '../components/AccessibleText';
+import { ACCESSIBLE_COLORS } from '../theme/accessibility';
 
 
 export default function LoginScreen() {
@@ -21,6 +26,7 @@ export default function LoginScreen() {
   const [senha, setSenha] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter(); 
+  const { signIn } = useSession();
 
   const handleLogin = async () => {
     if (!email || !senha) {
@@ -30,43 +36,35 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      const response = await fetch(apiUrl('/api/users/login'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email: email, password: senha }),
-      });
+      const response = await api.post('/users/login', { email, password: senha });
+      const payload = response.data as {
+        error?: string;
+        message?: string;
+        token?: unknown;
+        user?: unknown;
+        consent?: { required?: boolean; pending?: unknown[] };
+      };
+      const user = parseSessionUser(payload.user);
+      if (typeof payload.token !== 'string' || !user) {
+        throw new Error('A resposta de autenticação é inválida.');
+      }
+      await signIn(payload.token, user);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || data.message || 'E-mail ou senha inválidos');
+      if (payload.consent?.required === true) {
+        router.replace('/consentimento' as never);
+        return;
       }
 
-      if (data.token) {
-        await AsyncStorage.setItem('authToken', data.token);
-      }
-
-      console.log('Usuário autenticado:', data);
-     
-      if (data.token) {
-        await AsyncStorage.setItem('authToken', data.token);
-      }
-      await AsyncStorage.setItem('userData', JSON.stringify(data.user));
-     
-
-      // admin ou user
-      if (data.user.role === 'admin' || data.user.role === 'medico') {
-        // admin (médico)
-        router.push('/doctor/dashboard'); 
+      if (user.role === 'medico' && user.doctor_approval_status !== 'approved') {
+        router.replace('/doctor/aguardando-aprovacao');
+      } else if (user.role === 'admin' || user.role === 'medico') {
+        router.replace('/doctor/dashboard');
       } else {
-        // É um paciente
-        router.push('/outra-gestacao'); // A tela padrão do paciente
+        const lastPeriod = await getLastPeriod(user.id);
+        router.replace(lastPeriod ? '/(tabs)' : '/outra-gestacao');
       }
 
     } catch (error) {
-      console.error('Erro no login:', error);
       Alert.alert('Erro no Login', error instanceof Error ? error.message : 'Tente novamente');
     } finally {
       setLoading(false);
@@ -83,70 +81,117 @@ export default function LoginScreen() {
 
   return (
     <LinearGradient colors={["#cce5f6", "#f8cde9"]} style={styles.container}>
-      <View style={styles.headerContainer}>
-        <Image
-          source={require("../assets/images/myfetus-logo.png")}
-          style={styles.logoMain}
-          resizeMode="contain"
-        />
-      </View>
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
+          <View style={styles.headerContainer}>
+            <Image
+              source={require("../assets/images/myfetus-logo.png")}
+              style={styles.logoMain}
+              resizeMode="contain"
+                accessibilityLabel="Logo MyFetus"
+            />
+          </View>
 
-      <View style={styles.contentContainer}>
-        <View style={styles.formBox}>
-          <Image
-            source={require("../assets/images/fetus-heart.png")}
-            style={styles.heartImage}
-            resizeMode="contain"
-          />
-          <TextInput
-            placeholder="E-mail"
-            value={email}
-            onChangeText={setEmail}
-            style={[styles.input, { marginTop: 60 }]}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            placeholderTextColor="#f9a9a7"
-            editable={!loading}
-          />
-          <TextInput
-            placeholder="Senha"
-            value={senha}
-            onChangeText={setSenha}
-            secureTextEntry
-            style={styles.input}
-            placeholderTextColor="#f9a9a7"
-            editable={!loading}
-          />
+          <View style={styles.contentContainer}>
+            <View style={styles.formBox}>
+              <Image
+                source={require("../assets/images/fetus-heart.png")}
+                style={styles.heartImage}
+                resizeMode="contain"
+              />
+              <TextInput
+                testID="e2e-login-email"
+                placeholder="E-mail"
+                value={email}
+                onChangeText={setEmail}
+                style={[styles.input, { marginTop: 60 }]}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholderTextColor={ACCESSIBLE_COLORS.secondary}
+                editable={!loading}
+                accessibilityLabel="E-mail"
+                accessibilityHint="Digite o e-mail usado no cadastro"
+              />
+              <TextInput
+                testID="e2e-login-password"
+                placeholder="Senha"
+                value={senha}
+                onChangeText={setSenha}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={styles.input}
+                placeholderTextColor={ACCESSIBLE_COLORS.secondary}
+                editable={!loading}
+                accessibilityLabel="Senha"
+                accessibilityHint="Digite sua senha"
+              />
 
-          <TouchableOpacity 
-            style={[styles.loginButton, loading && styles.loginButtonDisabled]} 
-            onPress={handleLogin}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.loginText}>Login</Text>
-            )}
-          </TouchableOpacity>
+              <TouchableOpacity
+                testID="e2e-login-submit"
+                style={[styles.loginButton, loading && styles.loginButtonDisabled]}
+                onPress={handleLogin}
+                disabled={loading}
+                accessibilityLabel="Entrar"
+                accessibilityRole="button"
+                accessibilityState={{ disabled: loading, busy: loading }}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.loginText}>Login</Text>
+                )}
+              </TouchableOpacity>
 
-          <TouchableOpacity onPress={handleCreateAccount} disabled={loading}>
-            <Text style={styles.createAccountText}>Crie uma conta (Paciente)</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity onPress={handleCreateDoctorAccount} disabled={loading} style={{ marginTop: 10 }}>
-            <Text style={styles.doctorAccountText}>Sou médico. Cadastrar</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+              <TouchableOpacity
+                onPress={handleCreateAccount}
+                disabled={loading}
+                accessibilityLabel="Criar conta de paciente"
+                accessibilityRole="button"
+                accessibilityState={{ disabled: loading }}
+              >
+                <Text style={styles.createAccountText}>Crie uma conta (Paciente)</Text>
+              </TouchableOpacity>
 
-      <View style={styles.footerContainer}>
-        <Image
-          source={require("../assets/images/poli-upe-logo.png")}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-      </View>
+              <TouchableOpacity
+                onPress={handleCreateDoctorAccount}
+                disabled={loading}
+                style={{ marginTop: 10 }}
+                accessibilityLabel="Criar conta de médico"
+                accessibilityRole="button"
+                accessibilityState={{ disabled: loading }}
+              >
+                <Text style={styles.doctorAccountText}>Sou médico. Cadastrar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                accessibilityRole="link"
+                accessibilityLabel="Sobre o MyFetus"
+                onPress={() => router.push('/sobre')}
+                style={styles.aboutLink}
+              >
+                <Text style={styles.aboutText}>Sobre o MyFetus</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.footerContainer}>
+            <Image
+              source={require("../assets/images/poli-upe-logo.png")}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </LinearGradient>
   );
 }
@@ -156,8 +201,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     alignItems: "center",
+  },
+  keyboardView: {
+    flex: 1,
+    width: "100%",
+  },
+  scrollContent: {
+    flexGrow: 1,
+    alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 30,
+    paddingBottom: 24,
   },
   headerContainer: {
     width: "100%",
@@ -204,6 +258,8 @@ const styles = StyleSheet.create({
   input: {
     backgroundColor: "#fff",
     borderRadius: 25,
+    color: "#374151",
+    fontSize: 16,
     paddingHorizontal: 15,
     paddingVertical: 10,
     width: "100%",
@@ -212,7 +268,7 @@ const styles = StyleSheet.create({
     borderColor: "#fff",
   },
   loginButton: {
-    backgroundColor: "#f9a9a7",
+    backgroundColor: ACCESSIBLE_COLORS.secondary,
     paddingVertical: 12,
     borderRadius: 25,
     width: "100%",
@@ -228,14 +284,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   createAccountText: {
-    color: "#20B2AA",
+    color: ACCESSIBLE_COLORS.primary,
     fontWeight: "bold",
     fontSize: 14,
   },
   doctorAccountText: {
-    color: "#b34d7a",
+    color: ACCESSIBLE_COLORS.secondary,
     fontWeight: "bold",
     fontSize: 14,
+  },
+  aboutLink: {
+    justifyContent: 'center',
+    marginTop: 10,
+    minHeight: 44,
+  },
+  aboutText: {
+    color: '#555',
+    fontSize: 14,
+    textDecorationLine: 'underline',
   },
   logo: {
     width: 240,

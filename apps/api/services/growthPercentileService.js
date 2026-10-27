@@ -1,9 +1,13 @@
 const {
   calculateHadlockPercentile,
-  generateFullGrowthChartBackground
+  generateFullGrowthChartBackground,
+  GrowthValidationError
 } = require('../utils/hadlockCalculator');
 
 function calculatePercentile(data) {
+  if (!data || typeof data !== 'object') {
+    throw new GrowthValidationError('Corpo da requisição inválido.');
+  }
   const { gestationalAgeWeeks, biometrics } = data;
 
   return calculateHadlockPercentile(
@@ -18,5 +22,6 @@ function getGrowthChart() {
 
 module.exports = {
   calculatePercentile,
-  getGrowthChart
+  getGrowthChart,
+  GrowthValidationError
 };

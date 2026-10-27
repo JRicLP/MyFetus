@@ -1,0 +1,166 @@
+name: Mobile E2E (Maestro)
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/**'
+      - 'apps/mobile/**'
+      - 'e2e/**'
+      - '.github/workflows/mobile-e2e.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  exam-cycle:
+    name: E2E exam cycle
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      PG_USER: myfetus_app
+      PG_PASSWORD: e2e-postgres-password
+      PG_DATABASE: myfetus
+      JWT_SECRET: e2e-jwt-secret-for-local-ci-only
+      AES_ENCRYPTION_KEY_V1: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      EMAIL_LOOKUP_HMAC_KEY: fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210
+      AES_KEY_VERSION: 1
+      NODE_ENV: test
+      ENFORCE_HTTPS: false
+      CORS_ORIGIN: http://localhost:8081,http://localhost:19006,http://localhost:3000
+      DOCUMENT_EXTRACTION_INTERVAL_MS: 1000
+      DOCUMENT_EXTRACTION_BATCH_SIZE: 5
+      ENABLE_DOCUMENT_OCR: 'false'
+      MAESTRO_CLI_NO_ANALYTICS: 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/api/package-lock.json
+            apps/mobile/package-lock.json
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm ci --prefix apps/api
+          npm ci --prefix apps/mobile
+
+      - name: Start isolated API environment
+        run: |
+          cp .env.example .env
+          sed -i 's/^PG_PASSWORD=.*/PG_PASSWORD=e2e-postgres-password/' .env
+          sed -i 's/^JWT_SECRET=.*/JWT_SECRET=e2e-jwt-secret-for-local-ci-only/' .env
+          sed -i 's/^AES_ENCRYPTION_KEY_V1=.*/AES_ENCRYPTION_KEY_V1=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef/' .env
+          sed -i 's/^EMAIL_LOOKUP_HMAC_KEY=.*/EMAIL_LOOKUP_HMAC_KEY=fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210/' .env
+          sed -i 's/^DOCUMENT_EXTRACTION_INTERVAL_MS=.*/DOCUMENT_EXTRACTION_INTERVAL_MS=1000/' .env
+          sed -i 's/^ENABLE_DOCUMENT_OCR=.*/ENABLE_DOCUMENT_OCR=false/' .env
+          docker compose up -d db
+          for attempt in $(seq 1 30); do
+            if [ "$(docker inspect --format='{{.State.Health.Status}}' myfetus-db 2>/dev/null)" = "healthy" ]; then
+              break
+            fi
+            if [ "$attempt" = 30 ]; then
+              docker logs myfetus-db
+              exit 1
+            fi
+            sleep 2
+          done
+          npm run db:migrate
+          PG_HOST=127.0.0.1 PG_PORT=5434 SEED_PASSWORD=SenhaTeste123! node scripts/seed.js
+          nohup env PG_HOST=127.0.0.1 PG_PORT=5434 node apps/api/server.js > "$RUNNER_TEMP/myfetus-api.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/myfetus-api.pid"
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3000/ping > /dev/null; then
+              break
+            fi
+            if [ "$attempt" = 30 ]; then
+              cat "$RUNNER_TEMP/myfetus-api.log"
+              exit 1
+            fi
+            sleep 2
+          done
+
+      - name: Seed synthetic exam cycle
+        env:
+          E2E_API_URL: http://127.0.0.1:3000
+          E2E_RUN_ID: ci-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          node e2e/scripts/seed_exam_cycle.js > "$RUNNER_TEMP/e2e.env"
+          cat "$RUNNER_TEMP/e2e.env" >> "$GITHUB_ENV"
+
+      - name: Generate synthetic PDF
+        run: node e2e/scripts/create_synthetic_pdf.js e2e/artifacts/synthetic-lab-report.pdf
+
+      - name: Build Android APK
+        working-directory: apps/mobile
+        env:
+          NODE_ENV: production
+          EXPO_PUBLIC_API_URL: http://10.0.2.2:3000
+          EXPO_ROUTER_APP_ROOT: ./app
+          CI: '1'
+        run: |
+          npx expo prebuild --platform android --no-install
+          cd android
+          ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon
+
+      - name: Install Maestro CLI
+        run: |
+          export MAESTRO_VERSION=2.11.0
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+          "$HOME/.maestro/bin/maestro" --version
+
+      - name: Run Maestro on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          cores: 4
+          ram-size: 6144M
+          heap-size: 576M
+          emulator-boot-timeout: 600
+          force-avd-creation: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: |
+            adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+            bash e2e/scripts/push_synthetic_pdf.sh e2e/artifacts/synthetic-lab-report.pdf synthetic-lab-report.pdf
+            bash e2e/scripts/run_maestro_suite.sh "$RUNNER_TEMP"
+
+      - name: Verify persisted exam cycle
+        if: ${{ success() }}
+        run: node e2e/scripts/verify_exam_cycle.js
+
+      - name: Upload E2E evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-e2e-evidence-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/maestro-smoke-results.xml
+            ${{ runner.temp }}/maestro-results.xml
+            ${{ runner.temp }}/myfetus-api.log
+            ~/.maestro
+          if-no-files-found: warn
+          include-hidden-files: true
+          retention-days: 7

@@ -17,6 +17,9 @@ build/
 apps/api/uploads/*
 !apps/api/uploads/.gitkeep
 
+# Artefatos gerados pelo E2E mobile
+e2e/artifacts/
+
 # Expo / React Native
 apps/mobile/.expo/
 apps/mobile/expo-env.d.ts

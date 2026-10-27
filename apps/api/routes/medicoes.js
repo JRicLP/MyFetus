@@ -25,8 +25,11 @@ const express = require('express');
 const router = express.Router();
 const client = require('../backend');
 const logger = require('../utils/logger');
-const cryptoService = require('../services/cryptoService');
+const { rateLimit } = require('express-rate-limit');
+const { createClinicalLimiterOptions } = require('../middlewares/authRateLimit');
 const { authenticateToken, requireRole } = require('../middlewares/auth');
+
+router.use(rateLimit(createClinicalLimiterOptions()));
 
 // Rota POST para salvar medição
 router.post('/', authenticateToken, requireRole('medico', 'admin'), async (req, res) => {

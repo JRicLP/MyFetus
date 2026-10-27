@@ -4,27 +4,35 @@
   "description": "**MyFetus** é um aplicativo móvel voltado ao acompanhamento gestacional, desenvolvido para conectar gestantes e médicos em uma plataforma integrada. O app permite monitorar o desenvolvimento semana a semana do bebê, registrar dados clínicos e acompanhar a saúde da gestante de forma prática e acessível.",
   "main": "index.js",
   "scripts": {
+    "setup": "node scripts/setup.js",
+    "seed": "node scripts/seed.js",
+    "db:migrate": "node scripts/migrate.js",
+    "docker:up": "docker compose up -d db",
+    "docker:down": "docker compose down",
+    "docker:reset": "docker compose down -v && docker compose up -d db",
+    "dev:api": "npm --prefix apps/api run dev",
+    "dev:mobile": "npm --prefix apps/mobile start",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "generate:dataset": "node scripts/generate_dataset.js",
     "generate:dataset:ocr": "node scripts/generate_dataset.js --with-ocr",
     "test:pdf-extractor": "node --experimental-vm-modules node_modules/jest/bin/jest.js tests/pdfExtractor.test.js --runInBand",
-    "accuracy:pdf": "node scripts/accuracy_report.js"
+    "accuracy:pdf": "node scripts/accuracy_report.js",
+    "check:logs": "node scripts/check-no-console.js"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/JRicLP/MyFetus.git"
+    "url": "git+https://github.com/felipemrvieira/MyFetus.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "bugs": {
-    "url": "https://github.com/JRicLP/MyFetus/issues"
+    "url": "https://github.com/felipemrvieira/MyFetus/issues"
   },
-  "homepage": "https://github.com/JRicLP/MyFetus#readme",
+  "homepage": "https://github.com/felipemrvieira/MyFetus#readme",
   "devDependencies": {
     "jest": "^30.4.2",
-    "pdf-lib": "^1.17.1",
-    "turbo": "^2.9.12"
+    "pdf-lib": "^1.17.1"
   }
 }

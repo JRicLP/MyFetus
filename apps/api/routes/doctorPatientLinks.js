@@ -16,8 +16,12 @@
  */
 const express = require('express');
 const router = express.Router();
+const { rateLimit } = require('express-rate-limit');
 const doctorPatientLinkController = require('../controllers/doctorPatientLinkController');
 const { authenticateToken, requireRole } = require('../middlewares/auth');
+const { createApiLimiterOptions } = require('../middlewares/authRateLimit');
+
+router.use(rateLimit(createApiLimiterOptions()));
 
 router.get(
   '/search',

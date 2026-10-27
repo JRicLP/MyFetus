@@ -7,11 +7,14 @@ const { generateMaternalAgentAnalysis } = require('../services/generationService
 
 const embeddingService = require('../services/embeddingService');
 const vectorStore = require('../services/vectorStoreService');
+const {
+  doctorCanAccessPregnant,
+  ensureCanAccessPregnant,
+} = require('../utils/clinicalAccess');
+const logger = require('../utils/logger');
 
 async function handleMaternalAnalysis(req, res) {
-  console.log("DEBUG: Variáveis de ambiente no Controller:");
-  console.log("DIMENSÃO:", process.env.EMBEDDING_DIMENSION);
-  console.log("MODELO:", process.env.EMBEDDING_MODEL);
+
   
   try {
     const { patientId, query } = req.body;
@@ -20,7 +23,22 @@ async function handleMaternalAnalysis(req, res) {
       return res.status(400).json({ error: 'patientId e query são obrigatórios.' });
     }
 
-    console.log("DEBUG: Procurando gestante com ID:", patientId);
+    const pregnantId = Number(patientId);
+    if (!Number.isInteger(pregnantId) || pregnantId <= 0) {
+      return res.status(400).json({ error: 'patientId inválido.' });
+    }
+
+    // Medico: o vinculo ativo e verificado antes da existencia da gestante, para que
+    // ID inexistente e ID sem vinculo tenham a mesma resposta (evita enumerar IDs).
+    // Admin acessa qualquer gestante.
+    if (req.user.role === 'medico') {
+      if (!(await doctorCanAccessPregnant(req.user.id, pregnantId))) {
+        return res.status(403).json({ error: 'Acesso negado' });
+      }
+    } else if (!(await ensureCanAccessPregnant(req, res, pregnantId))) {
+      return;
+    }
+
     // 1. Buscar os dados na base de dados (espelhando o fluxo do pregnantController)
     const [rowResult, pregnancyResult, eventsResult] = await Promise.all([
       client.query(
@@ -28,13 +46,13 @@ async function handleMaternalAnalysis(req, res) {
            FROM pregnants p
            JOIN users u ON p.user_id = u.id
           WHERE p.id = $1`,
-        [patientId]
+        [pregnantId]
       ),
       client.query(
         `SELECT * FROM pregnancies
           WHERE pregnant_id = $1
           ORDER BY created_at DESC LIMIT 1`,
-        [patientId]
+        [pregnantId]
       ),
       client.query(
         `SELECT pe.*
@@ -42,7 +60,7 @@ async function handleMaternalAnalysis(req, res) {
            JOIN pregnancies preg ON preg.id = pe.pregnancy_id
           WHERE preg.pregnant_id = $1
           ORDER BY pe.created_at DESC`,
-        [patientId]
+        [pregnantId]
       ),
     ]);
 
@@ -58,7 +76,6 @@ async function handleMaternalAnalysis(req, res) {
       eventsResult.rows
     );
 
-    console.log('Conteúdo do ragRetrieval:', ragRetrieval);
 
     const queryEmbedding = await embeddingService.generateEmbedding(query);
     const rawPineconeResults = await vectorStore.queryVectors(queryEmbedding, { topK: 10 });
@@ -78,7 +95,7 @@ async function handleMaternalAnalysis(req, res) {
 
     // Adicione esta verificação funcional
     if (ragResults.length === 0) {
-        console.warn(`Nenhuma diretriz encontrada para a query: ${query}`);
+        logger.warn(`Nenhuma diretriz encontrada para a query`);
         // Opção A: Retornar um aviso para o usuário
         return res.status(200).json({ 
             success: true, 
@@ -100,7 +117,7 @@ async function handleMaternalAnalysis(req, res) {
     });
 
   } catch (error) {
-    console.error('Erro na orquestração do Agente Materno:', error);
+    logger.error('Erro na orquestração do Agente Materno');
     return res.status(500).json({ error: 'Erro interno ao processar análise clínica.' });
   }
 }

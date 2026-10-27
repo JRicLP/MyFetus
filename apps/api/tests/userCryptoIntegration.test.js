@@ -13,6 +13,7 @@ const {
   createUser,
   loginUser,
 } = require('../controllers/userController');
+const { getRequiredPurposes } = require('../config/consentPolicy');
 
 function createResponse() {
   return {
@@ -46,6 +47,7 @@ async function run() {
         email,
         password,
         birthdate: '1992-08-17',
+        consents: getRequiredPurposes('gestante'),
       },
     }, createResponseMock);
 

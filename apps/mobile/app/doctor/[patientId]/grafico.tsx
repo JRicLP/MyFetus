@@ -9,7 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { apiUrl, fetchWithAuth } from '../../../utils/api';
+import { api } from '../../../utils/apiClient';
 import NutritionalGrowthChart from '../../../components/NutritionalGrowthChart';
 import UterineHeightChart from '../../../components/UterineHeightChart';
 import PatientVsPopulationComparison from '../../../components/PatientVsPopulationComparison';
@@ -30,11 +30,8 @@ export default function GraficoScreen() {
     const fetchPatientData = async () => {
       try {
         setLoading(true);
-        const response = await fetchWithAuth(apiUrl(`/api/pregnants/${patientId}`));
-        if (!response.ok) {
-          throw new Error('Não foi possível buscar os dados da paciente');
-        }
-        const data = await response.json();
+        const response = await api.get(`/pregnants/${patientId}`);
+        const data = response.data;
 
         const altura = Number(data.altura) || 0;
         const pesoAtual = Number(data.peso_atual) || 0;
@@ -45,7 +42,6 @@ export default function GraficoScreen() {
           setAlturaUterina(Number(data.latest_pregnancy.altura_uterina) || 0);
         }
       } catch (error) {
-        console.error(error);
         Alert.alert('Erro', error instanceof Error ? error.message : 'Erro de rede');
       } finally {
         setLoading(false);

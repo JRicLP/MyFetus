@@ -10,6 +10,22 @@ function normalizeEmail(email) {
   return email.trim().toLowerCase();
 }
 
+function normalizeCrm(crm) {
+  if (typeof crm !== 'string') {
+    throw new TypeError('CRM must be a string');
+  }
+
+  return crm.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+function normalizeCrmState(state) {
+  if (typeof state !== 'string') {
+    throw new TypeError('CRM state must be a string');
+  }
+
+  return state.trim().toUpperCase();
+}
+
 function parseHmacKey(rawKey) {
   if (!rawKey) {
     throw new Error('EMAIL_LOOKUP_HMAC_KEY is required');
@@ -35,6 +51,12 @@ function createEmailLookupService(options = {}) {
         .update(normalizeEmail(email), 'utf8')
         .digest('hex');
     },
+    hashCrm(crm, state) {
+      return crypto
+        .createHmac('sha256', key)
+        .update(`doctor-crm:${normalizeCrm(crm)}:${normalizeCrmState(state)}`, 'utf8')
+        .digest('hex');
+    },
     normalize: normalizeEmail,
   };
 }
@@ -51,5 +73,8 @@ function getDefaultService() {
 module.exports = {
   createEmailLookupService,
   hashEmail: (email) => getDefaultService().hash(email),
+  hashDoctorCrm: (crm, state) => getDefaultService().hashCrm(crm, state),
+  normalizeCrm,
+  normalizeCrmState,
   normalizeEmail,
 };

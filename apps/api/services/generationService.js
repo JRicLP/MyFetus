@@ -144,7 +144,8 @@ ${query}
 
     return response.text || 'Não foi possível completar a análise clínica no momento.';
   } catch (error) {
-    console.error('Erro na geração do Agente Materno:', error);
+    const logger = require('../utils/logger');
+    logger.error('Erro na geração do Agente Materno');
     throw new Error('Falha ao comunicar com o LLM para análise clínica.');
   }
 }

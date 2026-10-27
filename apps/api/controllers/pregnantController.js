@@ -11,6 +11,7 @@ const {
 } = require('../utils/clinicalAccess');
 const logger = require('../utils/logger');
 const { audit } = require('../services/auditService');
+const { sendInternalError } = require('../utils/httpErrors');
 
 function ensureAuthenticated(req, res) {
   if (!req.user) {
@@ -58,7 +59,7 @@ const createPregnant = async (req, res) => {
     );
     return res.status(201).json(result.rows[0]);
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    return sendInternalError(res);
   }
 };
 
@@ -100,7 +101,7 @@ const getPregnants = async (req, res) => {
       ));
     return res.json(rows);
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    return sendInternalError(res);
   }
 };
 
@@ -160,7 +161,7 @@ const updatePregnant = async (req, res) => {
       details: error.message,
       pregnantId: id,
     });
-    return res.status(500).json({ error: error.message });
+    return sendInternalError(res);
   }
 };
 
@@ -203,7 +204,7 @@ const getPregnantById = async (req, res) => {
       eventsResult.rows
     ));
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    return sendInternalError(res);
   }
 };
 

@@ -19,7 +19,7 @@ import {
 type Props = {
   week: number;
   imc: number;
-  historicalData?: Array<{ week: number; imc: number }>;
+  historicalData?: { week: number; imc: number }[];
 };
 
 const COLORS = {

@@ -19,7 +19,22 @@ function updateEnvValue(envPath, key, value) {
   fs.writeFileSync(envPath, updated, { encoding: 'utf8', mode: 0o600 });
 }
 
+function getEnvValue(envPath, key) {
+  const content = readEnvFile(envPath);
+  const match = content.match(new RegExp(`^${key}=(.*)$`, 'm'));
+  return match ? match[1].trim() : null;
+}
+
+function removeEnvKey(envPath, key) {
+  const content = readEnvFile(envPath);
+  const pattern = new RegExp(`^${key}=.*\r?\n?`, 'm');
+  const updated = content.replace(pattern, '');
+  fs.writeFileSync(envPath, updated, { encoding: 'utf8', mode: 0o600 });
+}
+
 module.exports = {
+  getEnvValue,
   readEnvFile,
+  removeEnvKey,
   updateEnvValue,
 };

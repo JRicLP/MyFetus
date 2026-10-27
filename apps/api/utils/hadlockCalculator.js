@@ -15,6 +15,13 @@
  * Aproximação de Abramowitz e Stegun para a Função de Erro (erf)
  * Necessária para calcular a Distribuição Normal Acumulada.
  */
+class GrowthValidationError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'GrowthValidationError';
+  }
+}
+
 function erf(x) {
   const sign = x >= 0 ? 1 : -1;
   x = Math.abs(x);
@@ -60,7 +67,7 @@ function calculateEstimatedWeight(biometrics) {
     typeof ca !== 'number' || ca <= 0 ||
     typeof cf !== 'number' || cf <= 0
   ) {
-    throw new Error('Parâmetros biométricos inválidos. Todas as medidas devem ser números maiores que zero.');
+    throw new GrowthValidationError('Parâmetros biométricos inválidos. Todas as medidas devem ser números maiores que zero.');
   }
 
   // Convertendo mm para cm (agora permitido pelo 'let')
@@ -85,7 +92,7 @@ function calculateEstimatedWeight(biometrics) {
 function calculateExpectedMedianWeight(gaWeeks) {
   // CORREÇÃO 2: Verificação rígida de tipo para a idade gestacional
   if (typeof gaWeeks !== 'number' || isNaN(gaWeeks) || gaWeeks < 10 || gaWeeks > 42) {
-    throw new Error('A idade gestacional deve ser um número válido entre 10 e 42 semanas.');
+    throw new GrowthValidationError('A idade gestacional deve ser um número válido entre 10 e 42 semanas.');
   }
   
   // Equação correta de Hadlock para o 50º percentil
@@ -152,6 +159,7 @@ module.exports = {
   calculateEstimatedWeight,
   calculateExpectedMedianWeight,
   generateCurvePointsForWeek,
+  GrowthValidationError,
   generateFullGrowthChartBackground
 };
 

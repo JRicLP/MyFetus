@@ -11,7 +11,8 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { apiUrl, fetchWithAuth } from '../../../utils/api';
+import { api } from '../../../utils/apiClient';
+import { parseInputFloat, parseInputInt } from '../../../utils/clinicalInput';
 
 // --- Funções de Classificação ---
 const classificarPA = (sistole: number, diastole: number) => {
@@ -53,26 +54,10 @@ export default function InfoPacienteScreen() {
   const [alturaUterina, setAlturaUterina] = useState('');
   const [bcf, setBcf] = useState(''); 
 
-  // --- Estados das Classificações ---
-  const [classPA, setClassPA] = useState('');
-  const [classGlicemia, setClassGlicemia] = useState('');
-  const [classAltura, setClassAltura] = useState('');
-  const [classBcf, setClassBcf] = useState('');
-  
   // --- Estados de Controle ---
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [pregnancyId, setPregnancyId] = useState<string | null>(null);
-
-  // Helper
-  const parseInputFloat = (input: string) => {
-    if (input === '') return 0;
-    return parseFloat(input.replace(',', '.'));
-  }
-  const parseInputInt = (input: string) => {
-    if (input === '') return 0;
-    return parseInt(input, 10);
-  }
 
   // --- useEffect para LER os dados ---
   useEffect(() => {
@@ -82,11 +67,8 @@ export default function InfoPacienteScreen() {
       try {
         setLoading(true);
         // 1. LENDO OS DADOS 
-        const response = await fetchWithAuth(apiUrl(`/api/pregnants/${patientId}`));
-        if (!response.ok) {
-          throw new Error('Não foi possível buscar os dados da paciente');
-        }
-        const data = await response.json();
+       const response = await api.get(`/pregnants/${patientId}`);
+        const data = response.data;
         
         // Dados da Tabela 'pregnants'
         setSistole(data.pressao_sistole ? String(data.pressao_sistole) : '');
@@ -101,7 +83,6 @@ export default function InfoPacienteScreen() {
         }
 
       } catch (error) {
-        console.error(error);
         Alert.alert('Erro', error instanceof Error ? error.message : 'Erro de rede');
       } finally {
         setLoading(false);
@@ -111,20 +92,10 @@ export default function InfoPacienteScreen() {
   }, [patientId]);
 
 
-  // --- useEffect para RECALCULAR ---
-  useEffect(() => {
-    const numSistole = parseInputInt(sistole);
-    const numDiastole = parseInputInt(diastole);
-    const numGlicemia = parseInputFloat(glicemia);
-    const numAltura = parseInputFloat(alturaUterina);
-    const numBcf = parseInputInt(bcf);
-
-    setClassPA(classificarPA(numSistole, numDiastole));
-    setClassGlicemia(classificarGlicemia(numGlicemia));
-    setClassAltura(classificarAlturaUterina(numAltura));
-    setClassBcf(classificarBCF(numBcf));
-
-  }, [sistole, diastole, glicemia, alturaUterina, bcf]);
+  const classPA = classificarPA(parseInputInt(sistole), parseInputInt(diastole));
+  const classGlicemia = classificarGlicemia(parseInputFloat(glicemia));
+  const classAltura = classificarAlturaUterina(parseInputFloat(alturaUterina));
+  const classBcf = classificarBCF(parseInputInt(bcf));
 
   
   // --- handleNext faz DOIS SALVAMENTOS ---
@@ -135,42 +106,27 @@ export default function InfoPacienteScreen() {
     try {
       // --- SALVAMENTO 1: Tabela 'pregnants' ---
       // (Sistole / Diastole)
-      const pregnantResponse = await fetchWithAuth(apiUrl(`/api/pregnants/${patientId}`), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pressao_sistole: parseInputInt(sistole),
-          pressao_diastole: parseInputInt(diastole)
-        }),
+      await api.put(`/pregnants/${patientId}`, {
+        pressao_sistole: parseInputInt(sistole),
+        pressao_diastole: parseInputInt(diastole)
       });
-      if (!pregnantResponse.ok) {
-        throw new Error('Falha ao salvar os dados de pressão');
-      }
 
       // --- SALVAMENTO 2: Tabela 'pregnancies' ---
       // (Glicemia / BCF / Altura Uterina)
       if (pregnancyId) {
-        const pregnancyResponse = await fetchWithAuth(apiUrl(`/api/pregnancies/${pregnancyId}`), {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            glicemia: parseInputFloat(glicemia),
-            frequencia_cardiaca: parseInputInt(bcf),
-            altura_uterina: parseInputFloat(alturaUterina)
-          }),
+        await api.put(`/pregnancies/${pregnancyId}`, {
+          glicemia: parseInputFloat(glicemia),
+          frequencia_cardiaca: parseInputInt(bcf),
+          altura_uterina: parseInputFloat(alturaUterina)
         });
-        if (!pregnancyResponse.ok) {
-          throw new Error('Falha ao salvar os dados da gestação');
-        }
       } else {
-        console.warn('Gestação não iniciada: pulando salvamento de pregnancies.');
+        // Sem uma gestação ativa, não há registro de pregnancy para atualizar.
       }
 
       // 3. NAVEGANDO
       router.push(`/doctor/${patientId}/antecedentes_familiares`);
 
     } catch (error) {
-      console.error(error);
       Alert.alert('Erro ao Salvar', error instanceof Error ? error.message : 'Erro de rede');
     } finally {
       setIsSaving(false);

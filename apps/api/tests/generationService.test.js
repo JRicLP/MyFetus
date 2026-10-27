@@ -5,6 +5,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const Module = require('node:module');
+const logger = require('../utils/logger');
 
 // 1. MOCK DO AMBIENTE (Crucial: DEVE ser definido ANTES do require do serviço)
 process.env.GEMINI_API_KEY = 'fake-test-key-123';
@@ -89,8 +90,7 @@ test.describe('Generation Service - Agente Materno', () => {
 
   test.it('deve lançar um erro se a API do Gemini falhar', async () => {
     // Silencia o console.error temporariamente para não poluir o output do teste
-    const originalConsoleError = console.error;
-    console.error = test.mock.fn();
+    const mockError = test.mock.method(logger, 'error', () => {});
 
     // Força o mock a retornar um erro neste teste específico
     mockGenerateContent.mock.mockImplementationOnce(async () => {
@@ -103,7 +103,7 @@ test.describe('Generation Service - Agente Materno', () => {
     );
 
     // Restaura o console.error
-    console.error = originalConsoleError;
+    mockError.mock.restore();
   });
 
   test.it('deve lançar erro se a GEMINI_API_KEY não estiver configurada', async () => {

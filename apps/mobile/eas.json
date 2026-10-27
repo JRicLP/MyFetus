@@ -1,0 +1,25 @@
+{
+  "cli": {
+    "version": ">= 10.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "preview": {
+      "environment": "preview",
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://myfetus-api-staging-3ajuqsazpa-rj.a.run.app"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "environment": "production",
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      }
+    }
+  }
+}

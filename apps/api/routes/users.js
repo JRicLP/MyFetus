@@ -19,18 +19,26 @@
  */
 const express = require('express');
 const router = express.Router();
+const { rateLimit } = require('express-rate-limit');
 const userController = require('../controllers/userController');
 const { authenticateToken, requireRole } = require('../middlewares/auth');
 const { requireUserAccess } = require('../middlewares/userAccess');
-const { createAuthLimiters } = require('../middlewares/authRateLimit');
-const { loginLimiter, registerLimiter, adminReadLimiter } = createAuthLimiters();
+const {
+  createLoginLimiterOptions,
+  createRegisterLimiterOptions,
+  createAdminReadLimiterOptions,
+} = require('../middlewares/authRateLimit');
+
+const loginLimiter = rateLimit(createLoginLimiterOptions());
+const registerLimiter = rateLimit(createRegisterLimiterOptions());
+const adminReadLimiter = rateLimit(createAdminReadLimiterOptions());
 
 router.post('/', registerLimiter, userController.createUser);
 router.post('/login', loginLimiter, userController.loginUser);
 
-router.get('/', authenticateToken, adminReadLimiter, requireRole('admin'), userController.getUsers);
-router.get('/:id', authenticateToken, adminReadLimiter, requireUserAccess, userController.getUserById);
-router.put('/:id', authenticateToken, adminReadLimiter, requireUserAccess, userController.updateUser);
-router.delete('/:id', authenticateToken, adminReadLimiter, requireRole('admin'), userController.deleteUser);
+router.get('/', adminReadLimiter, authenticateToken, requireRole('admin'), userController.getUsers);
+router.get('/:id', adminReadLimiter, authenticateToken, requireUserAccess, userController.getUserById);
+router.put('/:id', adminReadLimiter, authenticateToken, requireUserAccess, userController.updateUser);
+router.delete('/:id', adminReadLimiter, authenticateToken, requireRole('admin'), userController.deleteUser);
 
 module.exports = router;

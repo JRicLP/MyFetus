@@ -1,7 +1,11 @@
 const express = require('express');
 const router = express.Router();
+const { rateLimit } = require('express-rate-limit');
 const controller = require('../controllers/clinicalHistoryController');
 const { authenticateToken, requireRole } = require('../middlewares/auth');
+const { createClinicalLimiterOptions } = require('../middlewares/authRateLimit');
+
+router.use(rateLimit(createClinicalLimiterOptions()));
 
 const canReadHistory = [
   authenticateToken,

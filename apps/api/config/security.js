@@ -12,9 +12,16 @@ function parseTrustProxy(value) {
 function getSecurityConfig(env = process.env) {
   const production = env.NODE_ENV === 'production';
   const jwtSecret = env.JWT_SECRET;
+  const jwtSecretPrevious = env.JWT_SECRET_PREVIOUS;
 
   if (!jwtSecret || jwtSecret.length < 32) {
     throw new Error('JWT_SECRET deve possuir ao menos 32 caracteres');
+  }
+
+  if (jwtSecretPrevious !== undefined && jwtSecretPrevious !== null && jwtSecretPrevious !== '') {
+    if (jwtSecretPrevious.length < 32) {
+      throw new Error('JWT_SECRET_PREVIOUS deve possuir ao menos 32 caracteres');
+    }
   }
 
   return {

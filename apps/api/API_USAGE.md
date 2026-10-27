@@ -76,20 +76,25 @@ Authorization: Bearer <token-gerado>
 
 ## Endpoints principais
 
+> O contrato completo e atualizado (todas as rotas, papéis, corpos, respostas e erros) está em
+> [`openapi.yaml`](openapi.yaml) e pode ser navegado em `http://localhost:3000/docs/` com a API rodando.
+> Os exemplos abaixo são atalhos práticos; em caso de divergência, vale o `openapi.yaml`.
+
 Todos os exemplos usam `curl`. Substitua `localhost:3000` se necessário.
 
 ### Users
 
 - Criar usuário
-  - POST `/api/users`
-  - JSON: `name`, `email`, `password`, `birthdate` (YYYY-MM-DD), `is_active` (boolean), `role` (`gestante|medico|admin`)
+  - POST `/api/users` (cadastro público; cria conta com papel `gestante`)
+  - JSON: `name`, `email`, `password` (8+ caracteres), `birthdate` (YYYY-MM-DD) e `consents`
+    com o aceite da versão vigente de `GET /api/consents/policy` (E7-01.1)
 
 Exemplo:
 
 ```bash
 curl -X POST http://localhost:3000/api/users \
   -H "Content-Type: application/json" \
-  -d '{"name":"João","email":"joao@example.com","password":"senha123","birthdate":"1990-05-15","role":"gestante"}'
+  -d '{"name":"João","email":"joao@example.com","password":"senha-sintetica-123","birthdate":"1990-05-15","consents":[{"purpose":"termos_de_uso_gestante","version":"0.1-rascunho"},{"purpose":"politica_de_privacidade","version":"0.1-rascunho"},{"purpose":"tratamento_dados_saude","version":"0.1-rascunho"}]}'
 ```
 
 - Listar usuários: GET `/api/users`
@@ -97,6 +102,24 @@ curl -X POST http://localhost:3000/api/users \
 - Atualizar: PUT `/api/users/:id` (envia JSON com campos a alterar; se `password` será criptografada)
 - Deletar: DELETE `/api/users/:id`
 - Login: POST `/api/users/login` — body: `{ "email": "...", "password": "..." }`
+
+### Aprovação de médicos (E7-03)
+
+O cadastro público de médico cria o perfil com `approval_status: pending`. O
+login continua respondendo `200`, mas qualquer rota clínica que aceite o papel
+`medico` responde `403` com `code: DOCTOR_APPROVAL_REQUIRED` até a aprovação.
+
+- Listar médicos para decisão: `GET /api/doctors?approval_status=pending` (admin)
+- Aprovar: `POST /api/doctors/:id/approval` com `{ "decision": "approve" }` (admin)
+- Rejeitar: o mesmo endpoint com `{ "decision": "reject", "reason": "..." }` (admin)
+- Revogar: o mesmo endpoint com `{ "decision": "revoke", "reason": "..." }` (admin)
+- Consultar o próprio estado: `GET /api/doctors/me/approval` (médico)
+- Reenviar dados corrigidos: `PUT /api/doctors/me` com `crm`, `crm_estado` e campos profissionais (médico rejeitado/revogado)
+
+O CRM é armazenado cifrado e sua unicidade por CRM+UF é verificada por HMAC;
+o valor bruto não é usado para consulta. Todas as decisões administrativas
+geram auditoria. As contas sintéticas do `npm run seed` são marcadas como
+`is_synthetic` e aprovadas somente para desenvolvimento/testes locais.
 
 ---
 
@@ -164,11 +187,13 @@ curl -X POST http://localhost:3000/api/pregnancyEvents \
 
 ### Documents (documentos da gestante)
 
-Todas as rotas exigem `Authorization: Bearer <token>` de usuário `medico` ou `admin`.
-Médicos só acessam documentos de gestantes vinculadas em `doctor_patient_links`.
+Todas as rotas exigem `Authorization: Bearer <token>`. Gestantes acessam apenas os
+próprios documentos; médicos só acessam documentos de gestantes vinculadas em
+`doctor_patient_links`; alterações e reprocessamento ficam restritos a médicos e admins.
 
 - Upload (multipart): POST `/api/documents`
-  - Form fields: `pregnant_id` (number), `document_name` (string), `document_type` (string), `file` ou `document` (arquivo)
+  - Form fields: `pregnant_id` (number), `exam_request_id` (number), `document_name` (string), `document_type` (string), `file` ou `document` (arquivo)
+  - Para gestante, `exam_request_id` é obrigatório e deve estar pendente para a própria gestação.
 
 Exemplo:
 
@@ -198,7 +223,24 @@ Para habilitar as colunas de extração em um banco existente, aplique:
 psql -U myuser -d mydatabase -f apps/api/db/migration_extracted_text.sql
 ```
 
-O backend também inicia um worker periódico a cada 30 segundos, processando até 5 documentos `pending` por ciclo. No upload, a API dispara uma tentativa assíncrona imediata sem bloquear a resposta HTTP.
+O backend inicia o worker assíncrono no boot: executa um ciclo imediatamente e repete a cada 30 segundos, processando até 5 documentos `pending` por ciclo. No upload, a API dispara uma tentativa assíncrona imediata sem bloquear a resposta HTTP. Ajuste `DOCUMENT_EXTRACTION_INTERVAL_MS` e `DOCUMENT_EXTRACTION_BATCH_SIZE` quando necessário; falhas de um ciclo são registradas e não impedem os ciclos seguintes.
+
+### Solicitações de exames
+
+As solicitações feitas pelo médico ficam separadas dos arquivos enviados e dos laudos.
+O médico precisa ter vínculo ativo com a gestante:
+
+- `POST /api/exam-requests` — cria uma solicitação (`pregnant_id`, `exam_name` e `instructions` opcional).
+- `GET /api/exam-requests/pregnant/:id` — lista as solicitações do paciente; a autorização é validada pelo papel e pelo vínculo.
+- `DELETE /api/exam-requests/:id` — cancela uma solicitação ainda `pending`, preservando o histórico.
+
+Os estados previstos são `pending`, `submitted`, `reviewed` e `cancelled`. O upload da E2-02 poderá referenciar a solicitação e avançar seu estado sem transformar o arquivo em uma solicitação.
+
+Na E2-02, a gestante envia PDF ou imagem em `POST /api/documents` usando multipart
+com `exam_request_id`, `document_name`, `document_type` e o campo `document` (ou
+`file`). O backend confirma que o pedido pertence à gestante autenticada, criptografa
+o arquivo em repouso e muda o pedido de `pending` para `submitted` na mesma transação.
+Pedidos cancelados ou já enviados não aceitam outro arquivo.
 
 ---
 
